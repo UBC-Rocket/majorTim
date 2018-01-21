@@ -1,1 +1,1 @@
-# Apogee Detection Board (apdet) <hanna implementation>
+# Apogee Detection Board for Hanna (apdet_hanna)
