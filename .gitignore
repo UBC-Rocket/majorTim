@@ -53,3 +53,7 @@ dkms.conf
 
 #custom
 Makefile_with_path
+
+#Build img folders
+builds
+builds/*
