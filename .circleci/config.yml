@@ -11,7 +11,7 @@ jobs:
             cd apdet_hanna
             sed 's:BINPATH = :BINPATH=/home/rkt/gcc-arm-none-eabi-7-2017-q4-major/bin:' Makefile > Makefile_with_path
             make -f Makefile_with_path
-            cp build/apdet_hanna.bin /imgs/apdet_hanna.bin
+            cp build/apdet_hanna.bin /tmp/imgs/apdet_hanna.bin
 
       - store_artifacts:
-          path: /imgs/
+          path: /tmp/imgs
