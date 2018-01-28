@@ -1,7 +1,8 @@
 #./fetchBuild.sh :circle-CI-buildNumber
 
 if [ -z "$var" ]; then
-	echo "Please specify a circleCI build number";
+	echo "Please specify a circleCI build number"
+	echo "Builds are listed here: https://circleci.com/gh/UBC-Rocket/majorTim"
 else
 	mkdir builds
 	cd builds
