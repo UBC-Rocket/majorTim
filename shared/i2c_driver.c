@@ -121,6 +121,7 @@ extern status_t i2cWrite(uint16_t address, uint8_t *data, uint16_t size)
 
 /**
   * @brief  Sends the reset command to the barometer
+  * @note   This function should be called once during system initialization
   * @retval Status
   */
 extern status_t barometerReset(void)
@@ -136,14 +137,14 @@ extern status_t barometerReset(void)
 
 /**
   * @brief  Gets the calibration coefficients from the barometer's PROM
-  * @note   This function should be called once during system initialization
+  * @note   This function should be called once during system initialization (must call barometerReset first!)
   *         Values are stored in the global array 'barometer_calibration'
   * @retval Status
   */
 extern status_t barometerGetCalibration(void)
 {
     uint8_t cmd;
-    uint8_t buffer[2];
+    uint16_t buffer[2];
 
     for (int i = 0; i < 8; i++) {
         cmd = BAROMETER_CMD_PROM_READ | i * 2;
@@ -213,7 +214,7 @@ extern status_t barometerCalculateValues(uint32_t *pressure, uint32_t *temperatu
 {
     uint32_t d1, d2, dt, p, t;
     int64_t off, sens;
-    uint8_t buffer[3];
+    uint32_t buffer[3];
 
     if (barometerGetData(BAROMETER_CMD_ADC_D2, BAROMETER_CMD_ADC_4096, buffer) != STATUS_OK) {
         return STATUS_ERROR;
@@ -249,11 +250,9 @@ extern status_t barometerCalculateValues(uint32_t *pressure, uint32_t *temperatu
   * @note   If size > 1 the register address is automatically incremented for reading from consecutive registers
   * @retval Status
   */
-extern status_t accelerometerReadRegister(uint8_t sub_address, uint8_t *data, uint16_t size)
+extern status_t accelerometerReadRegister(uint8_t sub_address, uint8_t *buffer, uint16_t size)
 {
     uint8_t reg;
-    /* The max number of registers that can be read consecutively is 8 (see the register map) */
-    uint8_t buffer[8];
 
     if (size > 1) {
         reg = sub_address | ACCELEROMETER_AUTO_INCREMENT;
@@ -298,15 +297,31 @@ extern status_t accelerometerInit(void)
 
 extern status_t accelerometerGetCalibration(void)
 {
-
+    // no need? can't find in registers...
 }
 
-extern status_t accelerometerGetData(void)
+/**
+  * @brief  Gets the x, y, and z acceleration data from the accelerometer's registers
+  * @param  x A pointer to store x-axis acceleration value
+  * @param  y A pointer to store y-axis acceleration value
+  * @param  z A pointer to store z-axis acceleration value
+  * @retval Status
+  */
+extern status_t accelerometerGetData(int16_t *x, int16_t *y, int16_t *z)
 {
+    int16_t buffer[6];
 
+    if (accelerometerReadRegister(ACCELEROMETER_REG_OUT_X_L, buffer, 6) != STATUS_OK) {
+        return STATUS_ERROR;
+    }
+    *x = buffer[0] | buffer[1] << 8;
+    *y = buffer[2] | buffer[3] << 8;
+    *z = buffer[4] | buffer[5] << 8;
+
+    return STATUS_OK;
 }
 
 extern status_t accelerometerCalculateValues(void)
 {
-
+    // no need? given value is acceleration
 }
