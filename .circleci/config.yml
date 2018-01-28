@@ -11,17 +11,7 @@ jobs:
             cd apdet_hanna
             sed 's:BINPATH = :BINPATH=/home/rkt/gcc-arm-none-eabi-7-2017-q4-major/bin:' Makefile > Makefile_with_path
             make -f Makefile_with_path
-            cp build/apdet_hanna.bin /tmp/artifact-1
-
-      - run:
-          name: Creating Dummy Artifacts
-          command: |
-            mkdir /tmp/artifacts;
-            echo "my artifact files in a dir" > /tmp/artifacts/artifact-2;
+            cp build/apdet_hanna.bin /imgs/apdet_hanna.bin
 
       - store_artifacts:
-          path: /tmp/artifact-1
-          destination: artifact-file
-
-      - store_artifacts:
-          path: /tmp/artifacts
+          path: /imgs/
