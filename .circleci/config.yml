@@ -13,4 +13,4 @@ jobs:
             make -f Makefile_with_path
 
       - store_artifacts:
-          path: /build/apdet_hanna.bin
+          path: /home/rkt/build/apdet_hanna/build/apdet_hanna.bin
