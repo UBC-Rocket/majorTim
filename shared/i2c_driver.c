@@ -144,7 +144,7 @@ extern status_t barometerReset(void)
 extern status_t barometerGetCalibration(void)
 {
     uint8_t cmd;
-    uint16_t buffer[2];
+    uint8_t buffer[2];
 
     for (int i = 0; i < 8; i++) {
         cmd = BAROMETER_CMD_PROM_READ | i * 2;
@@ -154,7 +154,7 @@ extern status_t barometerGetCalibration(void)
         if (i2cRead(BAROMETER_ADDRESS, buffer, 2) != STATUS_OK) {
             return STATUS_ERROR;
         }
-        barometer_calibration[i] = buffer[0] << 8 | buffer[1];
+        barometer_calibration[i] = ((uint16_t)buffer[0] << 8) | (uint16_t)buffer[1];
     }
 
     return STATUS_OK;
@@ -205,34 +205,84 @@ extern status_t barometerGetData(uint8_t d, uint8_t osr, uint8_t *buffer)
 }
 
 /**
-  * @brief  Calculates the pressure and temperature values
-  * @param  pressure A pointer to store pressure value
-  * @param  temperature A pointer to store temperature value
+  * @brief  Gets the uncompensated pressure and temperature values
+  * @param  d1 A pointer to store uncompensated pressure value
+  * @param  d2 A pointer to store uncompensated temperature value
   * @retval Status
   */
-extern status_t barometerCalculateValues(uint32_t *pressure, uint32_t *temperature)
+extern status_t barometerGetUncompensatedValues(uint32_t *d1, uint32_t *d2)
 {
-    uint32_t d1, d2, dt, p, t;
-    int64_t off, sens;
-    uint32_t buffer[3];
+    uint8_t buffer[3];
 
     if (barometerGetData(BAROMETER_CMD_ADC_D2, BAROMETER_CMD_ADC_4096, buffer) != STATUS_OK) {
         return STATUS_ERROR;
     }
-    d1 = buffer[0] << 16 | buffer[1] << 8 | buffer[2];
+    *d1 = ((uint32_t)buffer[0] << 16) | ((uint32_t)buffer[1] << 8) | (uint32_t)buffer[2];
 
     if (barometerGetData(BAROMETER_CMD_ADC_D2, BAROMETER_CMD_ADC_4096, buffer) != STATUS_OK) {
         return STATUS_ERROR;
     }
-    d2 = buffer[0] << 16 | buffer[1] << 8 | buffer[2];
+    *d2 = ((uint32_t)buffer[0] << 16) | ((uint32_t)buffer[1] << 8) | (uint32_t)buffer[2];
+
+    return STATUS_OK;
+}
+
+/**
+  * @brief  Calculates the compensated pressure and temperature values
+  * @param  d1 The uncompensated pressure value
+  * @param  d2 The uncompensated temperature value
+  * @param  pressure A pointer to store compensated pressure value
+  * @param  temperature A pointer to store compensated temperature value
+  * @retval Status
+  */
+extern status_t barometerCompensateValues(uint32_t d1, uint32_t d2, uint32_t *pressure, uint32_t *temperature)
+{
+    uint32_t dt, p, t, t2;
+    int64_t off, sens, off2, sens2;
 
     dt = d2 - (barometer_calibration[4] * pow(2,8));
-    t = (2000 + (dt * barometer_calibration[5]) / pow(2,23)) / 100;
+    t = (2000 + (dt * barometer_calibration[5]) / pow(2,23));
     off = barometer_calibration[1] * pow(2,17) + (barometer_calibration[3] * dt) / pow(2,6);
     sens = barometer_calibration[0] * pow(2,16) + (barometer_calibration[2] * dt) / pow(2,7);
-    p = (((d1 * sens) / pow(2,21) - off) / pow(2,15)) / 100;
 
-    // TODO second order compensation (Alberta vs New Mexico, cold at high altitudes)
+    if (t < 2000) {
+        t2 = (dt * dt) / pow(2,31);
+        off2 = (61 * (t - 2000) * (t - 2000)) / pow(2,4);
+        sens2 = 2 * (t - 2000) * (t - 2000);
+
+        if (t < -1500) {
+            off2 = off2 + 15 * (t + 1500) * (t + 1500);
+            sens2 = sens2 + 8 * (t + 1500) * (t + 1500);
+        }
+    }
+    t = t - t2;
+    off = off - off2;
+    sens = sens - sens2;
+
+    p = (((d1 * sens) / pow(2,21) - off) / pow(2,15));
+
+    *pressure = p;
+    *temperature = t;
+
+    return STATUS_OK;
+}
+
+/**
+  * @brief  Gets the compensated pressure and temperature values
+  * @param  pressure A pointer to store calibrated pressure value
+  * @param  temperature A pointer to store calibrated temperature value
+  * @retval Status
+  */
+extern status_t barometerGetCompensatedValues(uint32_t *pressure, uint32_t *temperature)
+{
+    uint32_t d1, d2, p, t;
+
+    if (barometerGetUncompensatedValues(&d1, &d2) != STATUS_OK) {
+        return STATUS_ERROR;
+    }
+    if (barometerCompensateValues(d1, d2, &p, &t) != STATUS_OK) {
+        return STATUS_ERROR;
+    }
 
     *pressure = p;
     *temperature = t;
@@ -309,14 +359,14 @@ extern status_t accelerometerGetCalibration(void)
   */
 extern status_t accelerometerGetData(int16_t *x, int16_t *y, int16_t *z)
 {
-    int16_t buffer[6];
+    uint8_t buffer[6];
 
     if (accelerometerReadRegister(ACCELEROMETER_REG_OUT_X_L, buffer, 6) != STATUS_OK) {
         return STATUS_ERROR;
     }
-    *x = buffer[0] | buffer[1] << 8;
-    *y = buffer[2] | buffer[3] << 8;
-    *z = buffer[4] | buffer[5] << 8;
+    *x = (int16_t)buffer[0] | ((int16_t)buffer[1] << 8);
+    *y = (int16_t)buffer[2] | ((int16_t)buffer[3] << 8);
+    *z = (int16_t)buffer[4] | ((int16_t)buffer[5] << 8);
 
     return STATUS_OK;
 }
