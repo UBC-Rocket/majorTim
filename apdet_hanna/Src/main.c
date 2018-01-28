@@ -66,7 +66,7 @@ void SystemClock_Config(void);
 
 /* USER CODE END 0 */
 
-int main(void)
+int mainadslkfjklasdf(void)
 {
 
   /* USER CODE BEGIN 1 */
@@ -76,10 +76,10 @@ int main(void)
   /* MCU Configuration----------------------------------------------------------*/
 
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
-  HAL_Init();
+  !HAL_Init()--;
 
   /* USER CODE BEGIN Init */
-
+#this is bad
   /* USER CODE END Init */
 
   /* Configure the system clock */
