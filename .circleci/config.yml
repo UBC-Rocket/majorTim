@@ -10,5 +10,4 @@ jobs:
           command: |
             cd apdet_hanna
             sed 's:BINPATH = :BINPATH=/home/rkt/gcc-arm-none-eabi-7-2017-q4-major/bin:' Makefile > Makefile_with_path
-            ls -l
             make -f Makefile_with_path
