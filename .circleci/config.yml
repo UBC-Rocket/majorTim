@@ -9,4 +9,4 @@ jobs:
           name: Build project
           command: |
             cd apdet_hanna
-            ../dmake.sh
+            make -f Makefile_with_path
