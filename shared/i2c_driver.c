@@ -3,7 +3,7 @@
 #include <math.h>
 #include <stdint.h>
 
-// #include <stm32f4xx_hal_i2c.h>
+#include <stm32f4xx_hal_i2c.h>
 #include <general.h>
 
 /* Constants -------------------------------------------------- */
@@ -121,7 +121,7 @@ extern status_t i2cWrite(uint16_t address, uint8_t *data, uint16_t size)
 
 /**
   * @brief  Sends the reset command to the barometer
-  * @note   This function should be called once during system initialization
+  * @note   This function should be called once during barometer initialization
   * @retval Status
   */
 extern status_t barometerReset(void)
@@ -137,7 +137,7 @@ extern status_t barometerReset(void)
 
 /**
   * @brief  Gets the calibration coefficients from the barometer's PROM
-  * @note   This function should be called once during system initialization (must call barometerReset first!)
+  * @note   This function should be called once during barometer initialization (must call barometerReset first!)
   *         Values are stored in the global array 'barometer_calibration'
   * @retval Status
   */
@@ -155,6 +155,23 @@ extern status_t barometerGetCalibration(void)
             return STATUS_ERROR;
         }
         barometer_calibration[i] = ((uint16_t)buffer[0] << 8) | (uint16_t)buffer[1];
+    }
+
+    return STATUS_OK;
+}
+
+/**
+  * @brief  Initializes the barometer
+  * @note   This function should be called once during system initialization
+  * @retval Status
+  */
+extern status_t barometerInit(void)
+{
+    if (barometerReset() != STATUS_OK) {
+        return STATUS_ERROR;
+    }
+    if (barometerGetCalibration() != STATUS_OK) {
+        return STATUS_ERROR;
     }
 
     return STATUS_OK;
@@ -206,8 +223,8 @@ extern status_t barometerGetData(uint8_t d, uint8_t osr, uint8_t *buffer)
 
 /**
   * @brief  Gets the uncompensated pressure and temperature values
-  * @param  d1 A pointer to store uncompensated pressure value
-  * @param  d2 A pointer to store uncompensated temperature value
+  * @param  d1 A pointer to store uncompensated pressure value in mbar
+  * @param  d2 A pointer to store uncompensated temperature value in *C
   * @retval Status
   */
 extern status_t barometerGetUncompensatedValues(uint32_t *d1, uint32_t *d2)
@@ -261,16 +278,18 @@ extern status_t barometerCompensateValues(uint32_t d1, uint32_t d2, uint32_t *pr
 
     p = (((d1 * sens) / pow(2,21) - off) / pow(2,15));
 
-    *pressure = p;
-    *temperature = t;
+    /* convert to mbar */
+    *pressure = p / 100;
+    /* convert to *C */
+    *temperature = t / 100;
 
     return STATUS_OK;
 }
 
 /**
   * @brief  Gets the compensated pressure and temperature values
-  * @param  pressure A pointer to store calibrated pressure value
-  * @param  temperature A pointer to store calibrated temperature value
+  * @param  pressure A pointer to store compensated pressure value
+  * @param  temperature A pointer to store compensated temperature value
   * @retval Status
   */
 extern status_t barometerGetCompensatedValues(uint32_t *pressure, uint32_t *temperature)
@@ -286,6 +305,27 @@ extern status_t barometerGetCompensatedValues(uint32_t *pressure, uint32_t *temp
 
     *pressure = p;
     *temperature = t;
+
+    return STATUS_OK;
+}
+
+/**
+  * @brief  Gets the compensated pressure value
+  * @param  pressure A pointer to store compensated pressure value
+  * @retval Status
+  */
+extern status_t barometerGetCompensatedPressure(uint32_t *pressure)
+{
+    uint32_t d1, d2, p;
+
+    if (barometerGetUncompensatedValues(&d1, &d2) != STATUS_OK) {
+        return STATUS_ERROR;
+    }
+    if (barometerCompensateValues(d1, d2, &p, &t) != STATUS_OK) {
+        return STATUS_ERROR;
+    }
+
+    *pressure = p;
 
     return STATUS_OK;
 }
@@ -345,33 +385,19 @@ extern status_t accelerometerInit(void)
 
 }
 
-extern status_t accelerometerGetCalibration(void)
-{
-    // no need? can't find in registers...
-}
-
 /**
-  * @brief  Gets the x, y, and z acceleration data from the accelerometer's registers
-  * @param  x A pointer to store x-axis acceleration value
-  * @param  y A pointer to store y-axis acceleration value
+  * @brief  Gets the z acceleration data from the accelerometer's registers
   * @param  z A pointer to store z-axis acceleration value
   * @retval Status
   */
-extern status_t accelerometerGetData(int16_t *x, int16_t *y, int16_t *z)
+extern status_t accelerometerGetData(int16_t *z)
 {
     uint8_t buffer[6];
 
     if (accelerometerReadRegister(ACCELEROMETER_REG_OUT_X_L, buffer, 6) != STATUS_OK) {
         return STATUS_ERROR;
     }
-    *x = (int16_t)buffer[0] | ((int16_t)buffer[1] << 8);
-    *y = (int16_t)buffer[2] | ((int16_t)buffer[3] << 8);
     *z = (int16_t)buffer[4] | ((int16_t)buffer[5] << 8);
 
     return STATUS_OK;
-}
-
-extern status_t accelerometerCalculateValues(void)
-{
-    // no need? given value is acceleration
 }
