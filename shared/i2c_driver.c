@@ -3,8 +3,8 @@
 #include <math.h>
 #include <stdint.h>
 
-#include <stm32f4xx_hal_i2c.h>
-#include <general.h>
+#include "../apdet_hanna/Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_i2c.h"
+#include "./general.h"
 
 /* Constants -------------------------------------------------- */
 #define I2C_SCL_CLOCK       100000
@@ -191,6 +191,7 @@ extern status_t barometerGetData(uint8_t d, uint8_t osr, uint8_t *buffer)
     if (i2cWrite(BAROMETER_ADDRESS, &cmd, 1)  != STATUS_OK) {
         return STATUS_ERROR;
     }
+    /* Delay as needed to allow ADC conversion to complete */
     switch (osr & 0x0f) {
         case BAROMETER_CMD_ADC_256:
             HAL_Delay(1);
@@ -246,6 +247,7 @@ extern status_t barometerGetUncompensatedValues(uint32_t *d1, uint32_t *d2)
 
 /**
   * @brief  Calculates the compensated pressure and temperature values
+  * @note   The below algorithm is based on the MS5607-02BA03 datasheet
   * @param  d1 The uncompensated pressure value
   * @param  d2 The uncompensated temperature value
   * @param  pressure A pointer to store compensated pressure value
@@ -316,7 +318,7 @@ extern status_t barometerGetCompensatedValues(uint32_t *pressure, uint32_t *temp
   */
 extern status_t barometerGetCompensatedPressure(uint32_t *pressure)
 {
-    uint32_t d1, d2, p;
+    uint32_t d1, d2, p, t;
 
     if (barometerGetUncompensatedValues(&d1, &d2) != STATUS_OK) {
         return STATUS_ERROR;
