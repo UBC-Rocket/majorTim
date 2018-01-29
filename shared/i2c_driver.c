@@ -256,8 +256,11 @@ extern status_t barometerGetUncompensatedValues(uint32_t *d1, uint32_t *d2)
   */
 extern status_t barometerCompensateValues(uint32_t d1, uint32_t d2, uint32_t *pressure, uint32_t *temperature)
 {
-    uint32_t dt, p, t, t2;
-    int64_t off, sens, off2, sens2;
+    uint32_t dt, p, t;
+    int64_t off, sens;
+    uint32_t t2 = 0;
+    int64_t off2 = 0;
+    int64_t sens2 = 0;
 
     dt = d2 - (barometer_calibration[4] * pow(2,8));
     t = (2000 + (dt * barometer_calibration[5]) / pow(2,23));
@@ -382,9 +385,14 @@ extern status_t accelerometerWriteRegister(uint8_t sub_address, uint8_t data)
     return STATUS_OK;
 }
 
+/**
+  * @brief  Initializes the accelerometer
+  * @note   This function should be called once during system initialization
+  * @retval Status
+  */
 extern status_t accelerometerInit(void)
 {
-
+    return STATUS_OK;
 }
 
 /**
