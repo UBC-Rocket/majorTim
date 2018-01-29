@@ -23,6 +23,12 @@ Hardware-independent functions from apdet.h
 #define NUM_CHECKS                      5  /* each condition has to pass 5 times */
 #define NUM_WRITE_ATTEMPTS              5  /* 5 is temp value, tbd from testing */
 
+#define P_0                       1013.25  /* pressure at 0 altitude (mb) */
+#define T_0                        288.15  /* temperature at 0 altitude (K) */
+#define L                         -0.0065  /* lapse rate (valid for heights between 0km and 11km) (K/m) */
+#define R                         287.053  /* gas constant for air (J/(kg K))*/
+#define g                         9.80665  /* gravitational acceleration (m/s^2) */
+
 /* STATIC HELPER FUNCTIONS / DRIVERS ===================================================================== */
 
 /*
@@ -56,43 +62,33 @@ extern status_t deployMain()
 }
 
 /*
-@brief Altitude calculator. Implementation of the international barometric formula (no temperature needed).
-@param TODO (pressure doesn't have to be in anything cause we're measuring a ratio (units cancel))
-@return altitude IN METERS (can convert to feet TODO)
+@brief Altitude calculator.
+@param curr_pres The current pressure.
+@param alt A pointer to store the current altitude.
+@return Altitude IN METERS.
 */
-/* should base pressure be sea level? or will giving it base pressure give us actual altitude? */
-extern status_t calcAlt(int32_t *curr_pres, int32_t *base_pres, uint32_t *alt)
+extern status_t calcAlt(uint32_t *curr_pres, uint32_t *alt)
 {
-	*alt = 44330*(1-( *curr_pres/ *base_pres)^(1/5.255));
+	*alt = T_0/L*((*curr_pres/P_0)^(-L*R/g)-1);
 
 	return STATUS_OK;
 }
 
 /*
-@brief Height above ground level calculator.
-@return height IN METERS (can convert to feet)
+@brief Height above ground (base altitude) calculator.
+@param curr_pres The current pressure.
+@param base_alt The base altitude.
+@param height A pointer to store the current height.
+@return Height IN METERS (can convert to feet)
 */
-extern status_t calcHeight(int32_t *curr_pres, int32_t *base_pres, int32_t *base_alt, uint32_t *height)
+extern status_t calcHeight(uint32_t *curr_pres, uint32_t *base_alt, uint32_t *height)
 {
 	uint32_t *curr_alt;
-	calcAlt(curr_pres, base_pres, curr_alt);
+	calcAlt(curr_pres, curr_alt);
 	*height = *curr_alt - *base_alt;
 
 	return STATUS_OK;
 }
-
-/*
-@brief Pressure converter from milibar to ___.
-Pressure is in millibars.
-@return altitude IN METERS (can convert to feet)
-*/
-extern status_t presConvert(int32_t *pres)
-{
-	*pres = /* convert me */
-
-	return STATUS_OK;
-}
-
 
 /* ROCKET FLIGHT STATE FUNCTIONS ================================================================= */
 
@@ -104,27 +100,24 @@ static status_t detectLaunch(void)
 {
 	/* expect giant spike in acceleration */
 	int launch_count = 0;
-	float accel = 0;
+	int16_t *accel;
 	
 	while (launch_count < NUM_CHECKS) { 
 
-		can_id_t can_id;
-		float can_msg;
-		void retval = canRead(&can_id, (uint64_t *) &can_msg);
-		if (retval != STATUS_OK || can_id != CAN_ID_SENSOR_ACCEL_Z) {
+		status_t retval = accelerometerGetData(accel);
+		if (retval != STATUS_OK) {
 			continue;
 		}
 
-		accel = can_msg;
-
-		if (accel >= SIM_LAUNCH_ACCEL) {
+		if (*accel >= SIM_LAUNCH_ACCEL) {
 			launch_count++;
 		} else {
 			launch_count = 0;
 		}
 	}
 
-	void retval = STATUS_ERROR;
+    /* HOW DO I WRITE APDET STATE TO THE I2C BUS? */
+	status_t retval = STATUS_ERROR;
 	for (int i = 0; i < NUM_WRITE_ATTEMPTS && retval != STATUS_OK; i++) {
 		retval = canWrite(CAN_ID_APDET_STATE, APDET_STATE_POWERED_ASCENT);
 	}
@@ -140,27 +133,23 @@ static status_t detectBurnout(void)
 	/* involve time to double check / as a backup? Check reasonable altitude?
 	Data may not be stable at this point */
 	int burnout_count = 0;
-	float accel = 0;
+	int16_t *accel;
 
 	while (burnout_count < NUM_CHECKS) {
 
-		can_id_t can_id;
-		float can_msg;
-		void retval = canRead(&can_id, (uint64_t *) &can_msg);
-		if (retval != STATUS_OK || can_id != CAN_ID_SENSOR_ACCEL_Z) {
-			continue;
-		}
+        status_t retval = accelerometerGetData(accel);
+        if (retval != STATUS_OK) {
+            continue;
+        }
 
-		accel = can_msg;
-
-		if (accel <= 0) {
+		if (*accel <= 0) {
 			burnout_count++;
 		} else {
 			burnout_count = 0;
 		}
 	}
 
-	void retval = STATUS_ERROR;
+	status_t retval = STATUS_ERROR;
 	for (int i = 0; i < NUM_WRITE_ATTEMPTS && retval != STATUS_OK; i++) {
 		retval = canWrite(CAN_ID_APDET_STATE, APDET_STATE_COASTING);
 	}
@@ -169,37 +158,37 @@ static status_t detectBurnout(void)
 
 /*
 @brief Transition from COASTING to DEPLOY DROGUE by checking altitude delta is negative.
+@param base_alt The base altitude.
 @return Status
 */
-static status_t coastingAndTestApogee(void)
+static status_t coastingAndTestApogee(uint32_t *base_alt)
 {
 
 	/* check that acceleration is 0 or positive downwards (acc >= 0 ) too? */
 	int apogee_count = 0;
 
-	float alt = 0;
-	float prev_alt = 0;
+    uint32_t *curr_pres;
+	uint32_t *height = 0;
+	uint32_t *prev_height = 0;
 
 	while (apogee_count < NUM_CHECKS) {
 
-		can_id_t can_id;
-		float can_msg;
-		void retval = canRead(&can_id, (uint64_t *) &can_msg);
-		if (retval != STATUS_OK || can_id != CAN_ID_SENSOR_CALC_ALTITUDE) {
-			continue;
-		}
+        status_t retval = barometerGetCompensatedPressure(curr_pres);
+        if (retval != STATUS_OK) {
+            continue;
+        }
 
-		prev_alt = alt;
-		alt = can_msg;
+        *prev_height = *height
+        calcHeight(curr_pres, base_alt, height);
 
-		if (alt <= prev_alt) {
+		if (*height <= *prev_height) {
 			apogee_count++;
 		} else {
 			apogee_count = 0;
 		}
 	}
 
-	void retval = STATUS_ERROR;
+	status_t retval = STATUS_ERROR;
 	for (int i = 0; i < NUM_WRITE_ATTEMPTS && retval != STATUS_OK; i++) {
 		retval = canWrite(CAN_ID_APDET_STATE, APDET_STATE_DEPLOY_DROGUE);
 	}
@@ -216,7 +205,7 @@ static status_t deployDrogueState(void)
 	deploy_drogue();
 	delay(3);
 
-	void retval = STATUS_ERROR;
+	status_t retval = STATUS_ERROR;
 	for (int i = 0; i < NUM_WRITE_ATTEMPTS && retval != STATUS_OK; i++) {
 		retval = canWrite(CAN_ID_APDET_STATE, APDET_STATE_DEPLOY_PAYLOAD);
 	}
@@ -231,7 +220,7 @@ static status_t deployPayloadState(void)
 {
 	deploy_payload();
 
-	void retval = STATUS_ERROR;
+	status_t retval = STATUS_ERROR;
 	for (int i = 0; i < NUM_WRITE_ATTEMPTS && retval != STATUS_OK; i++) {
 		retval = canWrite(CAN_ID_APDET_STATE, APDET_STATE_INITIAL_DESCENT);
 	}
@@ -240,32 +229,31 @@ static status_t deployPayloadState(void)
 
 /*
 @brief transitions from INITIAL_DESCENT to DEPLOY_MAIN after rocket's alt <= 3000 ft.
+@param base_alt The base altitude.
 @return Status
 */
-static status_t detectMainAlt(void)
+static status_t detectMainAlt(uint32_t *base_alt)
 {
 	int main_count = 0;
-	float alt = 0;
+    uint32_t *curr_pres;
+    uint32_t *height;
 
 	while (main_count < NUM_CHECKS) {
+        status_t retval = barometerGetCompensatedPressure(curr_pres);
+        if (retval != STATUS_OK) {
+            continue;
+        }
 
-		can_id_t can_id;
-		float can_msg;
-		void retval = canRead(&can_id, (uint64_t *) &can_msg);
-		if (retval != STATUS_OK || can_id != CAN_ID_SENSOR_CALC_ALTITUDE) {
-			continue;
-		}
+        calcHeight(curr_pres, base_alt, height);
 
-		alt = can_msg;
-
-		if (alt <= 3000) {
+		if (*height <= 3000) {
 			main_count++;
 		} else {
 			main_count = 0;
 		}
 	}
 
-	void retval = STATUS_ERROR;
+	status_t retval = STATUS_ERROR;
 	for (int i = 0; i < NUM_WRITE_ATTEMPTS && retval != STATUS_OK; i++) {
 		retval = canWrite(CAN_ID_APDET_STATE, APDET_STATE_DEPLOY_MAIN);
 	}
@@ -280,7 +268,7 @@ static status_t deployMainState(void)
 {
 	deploy_main();
 
-	void retval = STATUS_ERROR;
+	status_t retval = STATUS_ERROR;
 	for (int i = 0; i < NUM_WRITE_ATTEMPTS && retval != STATUS_OK; i++) {
 		retval = canWrite(CAN_ID_APDET_STATE, APDET_STATE_FINAL_DESCENT);
 	}
@@ -289,35 +277,35 @@ static status_t deployMainState(void)
 
 /*
 @brief Actually deploys the main parachute, then transitions from transitions from FINAL_DESCENT to LANDED.
+@param base_alt The base altitude.
 @return Status
 */
-static status_t finalDescent(void)
+static status_t finalDescent(uint32_t *base_alt)
 {
 	int land_count = 0;
 
-	float alt = 0;
-	float prev_alt = 0;
+    uint32_t *curr_pres;
+    uint32_t *height = 0;
+    uint32_t *prev_height = 0;
 
 	while (land_count < NUM_CHECKS) {
 
-		can_id_t can_id;
-		float can_msg;
-		void retval = canRead(&can_id, (uint64_t *) &can_msg);
-		if (retval != STATUS_OK || can_id != CAN_ID_SENSOR_CALC_ALTITUDE) {
-			continue;
-		}
+		status_t retval = barometerGetCompensatedPressure(curr_pres);
+        if (retval != STATUS_OK) {
+            continue;
+        }
 
-		prev_alt = alt;
-		alt = can_msg;
+        *prev_height = *height
+        calcHeight(curr_pres, base_alt, height);
 
-		if (alt == prev_alt) { /* give error bound? */
+		if (*height == *prev_height) { /* give error bound? */
 			land_count++;
 		} else {
 			land_count = 0;
 		}
 	}
 
-	void retval = STATUS_ERROR;
+	status_t retval = STATUS_ERROR;
 	for (int i = 0; i < NUM_WRITE_ATTEMPTS && retval != STATUS_OK; i++) {
 		retval = canWrite(CAN_ID_APDET_STATE, APDET_STATE_LANDED);
 	}
@@ -349,16 +337,18 @@ int main()
 
 	uint32_t *base_pres;
 	uint32_t *base_temp;
-	barometerGetCompensatedValues(base_pres, base_temp); /* put into detect launch? */
-
-	detectLaunch();
+    uint32_t *base_alt;
+	barometerGetCompensatedValues(base_pres, base_temp); /* put into detect launch? Take the latest */
+    calcAlt(base_pres, base_alt);
+	
+    detectLaunch();
 	detectBurnout();
-	coastingAndTestApogee();
+	coastingAndTestApogee(base_alt);
 	deployDrogueState();
 	deployPayloadState();
-	detectMainAlt();
+	detectMainAlt(base_alt);
 	deployMainState();
-	finalDescent();
+	finalDescent(base_alt);
 
 	while (1) {}
 	return 0;
