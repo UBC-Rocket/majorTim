@@ -2,16 +2,34 @@
 Hardware-independent functions from apdet.h
 */
 #include <apdet.h>
-#include <shared/can.h>
-#include <shared/utils.h>
+#include <shared/i2c_driver.c>
+#include <general.h>
+
+/* CONSTANTS ============================================================================================= */
+
+#define APDET_STATE_STANDBY             0
+#define APDET_STATE_POWERED_ASCENT      1
+#define APDET_STATE_COASTING            2
+#define APDET_STATE_DEPLOY_DROGUE       3
+#define APDET_STATE_DEPLOY_PAYLOAD      4
+#define APDET_STATE_INITIAL_DESCENT     5
+#define APDET_STATE_DEPLOY_MAIN         6
+#define APDET_STATE_FINAL_DESCENT       7
+#define APDET_STATE_LANDED              8
+
+#define SIM_LAUNCH_ACCEL               40  /* 40 is old value, ask Ollie assuming sims are accurate, > 40 */
+#define SIM_BURNOUT_ACCEL_DELTA         4  /* 40 is old value, ask Ollie */
+
+#define NUM_CHECKS                      5  /* each condition has to pass 5 times */
+#define NUM_WRITE_ATTEMPTS              5  /* 5 is temp value, tbd from testing */
 
 /* STATIC HELPER FUNCTIONS / DRIVERS ===================================================================== */
 
 /*
 @brief Drogue deployment driver.
-@return void
+@return Status
 */
-extern void deploy_drogue()
+extern status_t deployDrogue()
 {
 	/* TODO */
 	return STATUS_OK;
@@ -19,9 +37,9 @@ extern void deploy_drogue()
 
 /*
 @brief Payload deployment driver.
-@return void
+@return Status
 */
-extern void deploy_payload()
+extern status_t deployPayload()
 {
 	/* TODO */
 	return STATUS_OK;
@@ -29,9 +47,9 @@ extern void deploy_payload()
 
 /*
 @brief Main deployment driver.
-@return void
+@return Status
 */
-extern void deploy_main()
+extern status_t deployMain()
 {
 	/* TODO */
 	return STATUS_OK;
@@ -42,27 +60,33 @@ extern void deploy_main()
 Pressure is in millibars.
 @return altitude IN METERS (can convert to feet)
 */
-extern double calc_alt(int32_t curr_pres, int32_t base_pres)
+extern status_t calcAlt(int32_t *curr_pres, int32_t *base_pres, uint32_t *alt)
 {
-	return 44330*(1-(curr_pres/base_pres)^(1/5.255));
+	*alt = 44330*(1-( *curr_pres/ *base_pres)^(1/5.255));
+
+	return STATUS_OK;
 }
 
 /*
-@brief Initial reading. Pressure is in millibars.
-@return ...
+@brief Pressure converter from milibar to ___.
+Pressure is in millibars.
+@return altitude IN METERS (can convert to feet)
 */
-extern initial_reading(double *base_pressure, double *base_temperature)
+extern status_t presConvert(int32_t *pres)
 {
-	return void;
+	*pres = /* convert me */
+
+	return STATUS_OK;
 }
+
 
 /* ROCKET FLIGHT STATE FUNCTIONS ================================================================= */
 
 /*
 @brief Transitions from STANDBY to POWERED_ASCENT after seeing NUM_CHECKS positive accelerations in a row.
-@return void
+@return Status
 */
-static void detect_launch(void)
+static status_t detectLaunch(void)
 {
 	/* expect giant spike in acceleration */
 	int launch_count = 0;
@@ -95,9 +119,9 @@ static void detect_launch(void)
 
 /*
 @brief Transitions from POWERED_ASCENT to COASTING after seeing NUM_CHECKS negative accelerations in a row.
-@return void
+@return Status
 */
-static void detect_burnout(void)
+static status_t detectBurnout(void)
 {
 	/* involve time to double check / as a backup? Check reasonable altitude?
 	Data may not be stable at this point */
@@ -131,9 +155,9 @@ static void detect_burnout(void)
 
 /*
 @brief Transition from COASTING to DEPLOY DROGUE by checking altitude delta is negative.
-@return void
+@return Status
 */
-static void coasting_and_test_apogee(void)
+static status_t coastingAndTestApogee(void)
 {
 
 	/* check that acceleration is 0 or positive downwards (acc >= 0 ) too? */
@@ -171,9 +195,9 @@ static void coasting_and_test_apogee(void)
 
 /*
 @brief Actually deploys the drogue, waits 3s and transitions from DEPLOY_DROGUE to DEPLOY_PAYLOAD.
-@return void
+@return Status
 */
-static void deploy_drogue_state(void)
+static status_t deployDrogueState(void)
 {
 	deploy_drogue();
 	delay(3);
@@ -187,9 +211,9 @@ static void deploy_drogue_state(void)
 
 /*
 @brief Actually deploys the payload, then transitions from DEPLOY_PAYLOAD to INITIAL_DESCENT.
-@return void
+@return Status
 */
-static void deploy_payload_state(void)
+static status_t deployPayloadState(void)
 {
 	deploy_payload();
 
@@ -202,9 +226,9 @@ static void deploy_payload_state(void)
 
 /*
 @brief transitions from INITIAL_DESCENT to DEPLOY_MAIN after rocket's alt <= 3000 ft.
-@return void
+@return Status
 */
-static void detect_main_alt(void)
+static status_t detectMainAlt(void)
 {
 	int main_count = 0;
 	float alt = 0;
@@ -236,9 +260,9 @@ static void detect_main_alt(void)
 
 /*
 @brief Actually deploys the main parachute, then transitions from DEPLOY_MAIN to FINAL_DESCENT.
-@return void
+@return Status
 */
-static void deploy_main_state(void)
+static status_t deployMainState(void)
 {
 	deploy_main();
 
@@ -251,9 +275,9 @@ static void deploy_main_state(void)
 
 /*
 @brief Actually deploys the main parachute, then transitions from transitions from FINAL_DESCENT to LANDED.
-@return void
+@return Status
 */
-static void final_descent(void)
+static status_t finalDescent(void)
 {
 	int land_count = 0;
 
@@ -291,25 +315,36 @@ static void final_descent(void)
 
 /**
  * @brief Apogee Detection board routine - hardware-independent implementation.
- * @return Status.
+ * @return Status
  */
 int main()
 {
-	void retval = canInit();
-	if (retval != STATUS_OK) {
-		return retval;
-	}
-	double base_pres;
-	double base_temp;
-	initial_reading(&base_pres, &base_temp);
-	detect_launch();
-	detect_burnout();
-	coasting_and_test_apogee();
-	deploy_drogue_state();
-	deploy_payload_state();
-	detect_main_alt();
-	deploy_main_state();
-	final_descent();
+	status_t retval;
+
+	do {
+		retval = i2cInit();
+	} while (retval != STATUS_OK);
+
+	do {
+		retval = barometerInit();
+	} while (retval != STATUS_OK);
+	
+	do {
+		retval = accelerometerInit();
+	} while (retval != STATUS_OK);
+
+	uint32_t *base_pres;
+	uint32_t *base_temp;
+	barometerGetCompensatedValues(base_pres, base_temp); /* put into detect launch? */
+
+	detectLaunch();
+	detectBurnout();
+	coastingAndTestApogee();
+	deployDrogueState();
+	deployPayloadState();
+	detectMainAlt();
+	deployMainState();
+	finalDescent();
 
 	while (1) {}
 	return 0;

@@ -7,24 +7,24 @@
 #include <general.h>
 
 /* Constants -------------------------------------------------- */
-#define I2C_SCL_CLOCK       100000
-#define I2C_READ_TIMEOUT    100
-#define I2C_WRITE_TIMEOUT   100
+#define I2C_SCL_CLOCK                     100000
+#define I2C_READ_TIMEOUT                     100
+#define I2C_WRITE_TIMEOUT                    100
 
-#define BAROMETER_ADDRESS       0x76
-#define ACCELEROMETER_ADDRESS   0x18
+#define BAROMETER_ADDRESS                   0x76
+#define ACCELEROMETER_ADDRESS               0x18
 
-#define BAROMETER_CMD_RESET     0x1E
-#define BAROMETER_CMD_PROM_READ 0xA0
-#define BAROMETER_CMD_ADC_READ  0x00
-#define BAROMETER_CMD_ADC_CONV  0x40
-#define BAROMETER_CMD_ADC_D1    0x00
-#define BAROMETER_CMD_ADC_D2    0x10
-#define BAROMETER_CMD_ADC_256   0x00
-#define BAROMETER_CMD_ADC_512   0x02
-#define BAROMETER_CMD_ADC_1024  0x04
-#define BAROMETER_CMD_ADC_2048  0x06
-#define BAROMETER_CMD_ADC_4096  0x08
+#define BAROMETER_CMD_RESET                 0x1E
+#define BAROMETER_CMD_PROM_READ             0xA0
+#define BAROMETER_CMD_ADC_READ              0x00
+#define BAROMETER_CMD_ADC_CONV              0x40
+#define BAROMETER_CMD_ADC_D1                0x00
+#define BAROMETER_CMD_ADC_D2                0x10
+#define BAROMETER_CMD_ADC_256               0x00
+#define BAROMETER_CMD_ADC_512               0x02
+#define BAROMETER_CMD_ADC_1024              0x04
+#define BAROMETER_CMD_ADC_2048              0x06
+#define BAROMETER_CMD_ADC_4096              0x08
 
 #define ACCELEROMETER_AUTO_INCREMENT        0x80
 #define ACCELEROMETER_REG_CTRL_REG1         0x20
