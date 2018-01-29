@@ -56,13 +56,27 @@ extern status_t deployMain()
 }
 
 /*
-@brief Altitude calculator. Implementation of the international barometric formula (no temperature needed)
-Pressure is in millibars.
-@return altitude IN METERS (can convert to feet)
+@brief Altitude calculator. Implementation of the international barometric formula (no temperature needed).
+@param TODO (pressure doesn't have to be in anything cause we're measuring a ratio (units cancel))
+@return altitude IN METERS (can convert to feet TODO)
 */
+/* should base pressure be sea level? or will giving it base pressure give us actual altitude? */
 extern status_t calcAlt(int32_t *curr_pres, int32_t *base_pres, uint32_t *alt)
 {
 	*alt = 44330*(1-( *curr_pres/ *base_pres)^(1/5.255));
+
+	return STATUS_OK;
+}
+
+/*
+@brief Height above ground level calculator.
+@return height IN METERS (can convert to feet)
+*/
+extern status_t calcHeight(int32_t *curr_pres, int32_t *base_pres, int32_t *base_alt, uint32_t *height)
+{
+	uint32_t *curr_alt;
+	calcAlt(curr_pres, base_pres, curr_alt);
+	*height = *curr_alt - *base_alt;
 
 	return STATUS_OK;
 }
