@@ -152,36 +152,12 @@ static bool detectMainAlt(uint32_t *base_alt)
 @param base_alt The base altitude.
 @return Boolean
 */
-static bool detectLanded(uint32_t *base_alt)
+static bool detectLanded(uint32_t *base_alt, uint32_t *curr_pres, uint32_t *height)
 {
-    int land_count = 0;
+    *prev_height = *height
+    calcHeight(curr_pres, base_alt, height);
 
-    uint32_t *curr_pres;
-    uint32_t *height = 0;
-    uint32_t *prev_height = 0;
-
-    while (land_count < NUM_CHECKS) {
-
-        status_t retval = barometerGetCompensatedPressure(curr_pres);
-        if (retval != STATUS_OK) {
-            continue;
-        }
-
-        *prev_height = *height
-        calcHeight(curr_pres, base_alt, height);
-
-        if (*height == *prev_height) { /* give error bound? */
-            land_count++;
-        } else {
-            land_count = 0;
-        }
-    }
-
-    status_t retval = STATUS_ERROR;
-    for (int i = 0; i < NUM_WRITE_ATTEMPTS && retval != STATUS_OK; i++) {
-        retval = canWrite(CAN_ID_APDET_STATE, APDET_STATE_LANDED);
-    }
-    return STATUS_OK;
+    return (*height == *prev_height);
 }
 
 
@@ -214,6 +190,9 @@ int main()
 
     /* For testApogee function */
     uint32_t *test_ap_height = 0;
+
+    /* For detectLanded function */
+    uint32_t *land_det_height = 0;
     
     /* don't mind resetting these */
     int reset_count = NUM_CHECKS
@@ -336,6 +315,21 @@ int main()
                 break;
 
             case APDET_STATE_FINAL_DESCENT:
+                uint32_t *curr_pres;
+                status_t retval = barometerGetCompensatedPressure(curr_pres);
+                if (retval != STATUS_OK) {
+                    break;
+                }
+                if (detectLanded(base_alt, curr_pres, land_det_height)){
+                    land_count--;
+                    if (land_count <= 0) {
+                        curr_state = APDET_STATE_LANDED
+                        /* TODO: Save state to flash memory */
+                        /* TODO: Write state to SD card using SPI */
+                    }
+                } else {
+                    land_count = NUM_CHECKS;
+                }
                 break;
 
             case APDET_STATE_LANDED:
