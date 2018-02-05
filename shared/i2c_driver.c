@@ -396,18 +396,23 @@ extern status_t accelerometerInit(void)
 }
 
 /**
-  * @brief  Gets the z acceleration data from the accelerometer's registers
+  * @brief  Gets the x, y, and z acceleration data from the accelerometer's registers
+  * @param  x A pointer to store x-axis acceleration value
+  * @param  y A pointer to store y-axis acceleration value
   * @param  z A pointer to store z-axis acceleration value
   * @retval Status
   */
-extern status_t accelerometerGetData(int16_t *z)
+extern status_t accelerometerGetData(int16_t *x, int16_t *y, int16_t *z)
 {
-    uint8_t buffer[6];
+    uint16_t buffer[6];
 
     if (accelerometerReadRegister(ACCELEROMETER_REG_OUT_X_L, buffer, 6) != STATUS_OK) {
         return STATUS_ERROR;
     }
-    *z = (int16_t)buffer[4] | ((int16_t)buffer[5] << 8);
+
+    *x = buffer[0] | (buffer[1] << 8);
+    *y = buffer[2] | (buffer[3] << 8);
+    *z = buffer[4] | (buffer[5] << 8);
 
     return STATUS_OK;
 }
