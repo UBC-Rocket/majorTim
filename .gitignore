@@ -70,3 +70,13 @@ cmake-build-debug
 #Build img folders
 builds
 builds/*
+
+# Local build artefacts
+shared/mbed/BUILD-*/*
+
+*/.mbed
+*/BUILD-*
+*/makefile-mbed
+*/mbed-os
+*/mbed_config.h
+*/mbed_settings.py
