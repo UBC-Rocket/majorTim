@@ -44,6 +44,8 @@
 #include "gpio.h"
 
 /* USER CODE BEGIN Includes */
+#include "../../shared/general.h"
+#include "../../shared/i2c_driver.c"
 
 /* USER CODE END Includes */
 
