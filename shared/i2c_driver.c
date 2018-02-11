@@ -3,12 +3,13 @@
 #include <math.h>
 #include <stdint.h>
 
+#include "mbed.h"
 #include "I2C.h"
 #include "i2c_driver.h"
 #include "general.h"
 
 /* Objects -------------------------------------------------- */
-I2C i2c(SDA, SCL); //TODO: pins
+I2C i2c(PB_9, PB_8);
 
 /* Variables -------------------------------------------------- */
 static uint16_t barometer_calibration[6];
@@ -126,19 +127,19 @@ extern status_t barometerGetData(uint8_t d, uint8_t osr, uint8_t *buffer)
     /* Delay as needed to allow ADC conversion to complete */
     switch (osr & 0x0f) {
         case BAROMETER_CMD_ADC_256:
-            HAL_Delay(1); //TODO: fix implicit declaration
+            wait_ms(1);
             break;
         case BAROMETER_CMD_ADC_512:
-            HAL_Delay(2);
+            wait_ms(2);
             break;
         case BAROMETER_CMD_ADC_1024:
-            HAL_Delay(3);
+            wait_ms(3);
             break;
         case BAROMETER_CMD_ADC_2048:
-            HAL_Delay(5);
+            wait_ms(5);
             break;
         case BAROMETER_CMD_ADC_4096:
-            HAL_Delay(10);
+            wait_ms(10);
             break;
         default:
             return STATUS_ERROR;
