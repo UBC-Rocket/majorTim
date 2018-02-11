@@ -1,7 +1,6 @@
 /*
 Hardware-independent functions from apdet.h
 */
-#include <apdet.h>
 #include <shared/i2c_driver.c>
 #include <general.h>
 
@@ -333,11 +332,10 @@ int main()
                 break;
 
             case APDET_STATE_LANDED:
-                /* should I continue instead of breaking? */
+                /* will continue looping */
                 break;
         }
     }
-
-    while (1) {}
+    
     return 0;
 }
