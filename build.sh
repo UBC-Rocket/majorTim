@@ -43,7 +43,7 @@ if [ ! $1 ] || [ $1 = build ]; then
 
 	# Build
 	echo Building $BOARD board
-	make -f makefile-mbed \
+	make -j4 -f makefile-mbed \
      	 UBCR_TARGETDIR=$BUILD_DIR \
          UBCR_SHAREDDIR=ubcr_shared \
 	     UBCR_O_FILES=$O_FILES
