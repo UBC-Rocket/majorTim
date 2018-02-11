@@ -5,8 +5,8 @@
 
 #include "mbed.h"
 #include "I2C.h"
-#include "i2c_driver.h"
-#include "general.h"
+#include <i2c_driver.h>
+#include <general.h>
 
 /* Objects -------------------------------------------------- */
 I2C i2c(PB_9, PB_8);
