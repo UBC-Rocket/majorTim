@@ -249,7 +249,7 @@ extern status_t barometerGetCompensatedValues(int32_t *pressure, int32_t *temper
   * @param  pressure A pointer to store compensated pressure value
   * @retval Status
   */
-extern status_t barometerGetCompensatedPressure(uint32_t *pressure)
+extern status_t barometerGetCompensatedPressure(int32_t *pressure)
 {
     uint32_t d1, d2;
     int32_t t;
