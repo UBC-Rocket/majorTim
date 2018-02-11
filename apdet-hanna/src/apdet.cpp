@@ -3,12 +3,14 @@ Hardware-independent functions from apdet.h
 */
 #include <i2c_driver.h>
 #include <general.h>
+#include <math.h>
 
 /* CONSTANTS ============================================================================================= */
 
 #define SIM_LAUNCH_ACCEL               40  /* 40 is old value, ask Ollie assuming sims are accurate, > 40 */
                                            /* should be accel of least accelerating rocket */
-#define SIM_BURNOUT_ACCEL_DELTA         4  /* 4 is old value, ask Ollie */
+#define SIM_BURNOUT_ACCEL_DELTA         4  /* 4 seconds till burnout (data is pretty trash during powered ascent) */
+#define ACCEL_BY_APOGEE		         0.15  /* fraction of accel that indicates we are close to apogee */
 
 #define NUM_CHECKS                      5  /* each condition has to pass 5 times */
 #define NUM_WRITE_ATTEMPTS              5  /* 5 is temp value, tbd from testing */
@@ -57,9 +59,9 @@ extern status_t deployMain()
 @param alt A pointer to store the current altitude.
 @return Altitude IN METERS.
 */
-extern status_t calcAlt(uint32_t *curr_pres, uint32_t *alt)
+extern status_t calcAlt(int32_t *curr_pres, int32_t *alt)
 {
-    *alt = T_0/L*((*curr_pres/P_0)^(-L*R/g)-1);
+    *alt = (T_0/L) * (pow((*curr_pres/P_0),(-L*R/g) - 1));
 
     return STATUS_OK;
 }
@@ -71,13 +73,31 @@ extern status_t calcAlt(uint32_t *curr_pres, uint32_t *alt)
 @param height A pointer to store the current height.
 @return Height IN METERS (can convert to feet)
 */
-extern status_t calcHeight(uint32_t *curr_pres, uint32_t *base_alt, uint32_t *height)
+extern status_t calcHeight(int32_t *curr_pres, int32_t *base_alt, int32_t *height)
 {
-    uint32_t *curr_alt;
+    int32_t *curr_alt;
     calcAlt(curr_pres, curr_alt);
     *height = *curr_alt - *base_alt;
 
     return STATUS_OK;
+}
+
+extern status_t convertToFeet(int32_t *height_in_ft, int32_t *height_in_m)
+{
+	*height_in_ft = (*height_in_m) * 3.28084;
+	return STATUS_OK
+}
+
+/*
+@brief Returns acceleration magnitude.
+@param TODO
+@return Height IN METERS (can convert to feet)
+*/
+extern status_t totalAccel(int16_t *accel, int16_t *accel_x, int16_t *accel_y, int16_t *accel_z)
+{
+	*accel = sqrt(pow(*accel_x,2)+pow(*accel_y,2)+pow(*accel_z,2));
+
+	return STATUS_OK;
 }
 
 /* ROCKET FLIGHT STATE FUNCTIONS ================================================================= */
@@ -88,7 +108,7 @@ extern status_t calcHeight(uint32_t *curr_pres, uint32_t *base_alt, uint32_t *he
 @brief Returns true if rocket is in standby, else assume blackout
 @return Boolean
 */
-static bool testStandby(int16_t *accel, uint32_t *base_pres, uint32_t *base_temp, uint32_t *base_alt)
+static bool testStandby(int16_t *accel, int32_t *base_pres, int32_t *base_temp, int32_t *base_alt)
 {
     barometerGetCompensatedValues(base_pres, base_temp);
     calcAlt(base_pres, base_alt);
@@ -123,12 +143,11 @@ static bool detectBurnout(int16_t *accel)
 @param base_alt The base altitude.
 @return Boolean
 */
-static bool testApogee(uint32_t *base_alt, uint32_t *curr_pres, uint32_t *height)
+static bool testApogee(int32_t *base_alt, int32_t *curr_pres, int32_t *height)
 {
-
     /* check that acceleration is 0 or positive downwards (acc >= 0 ) too? */
 
-    uint32_t *prev_height = *height
+    int32_t *prev_height = *height
     calcHeight(curr_pres, base_alt, height);
 
     return (*height <= *prev_height);
@@ -139,11 +158,13 @@ static bool testApogee(uint32_t *base_alt, uint32_t *curr_pres, uint32_t *height
 @param base_alt The base altitude.
 @return Boolean
 */
-static bool detectMainAlt(uint32_t *base_alt)
+static bool detectMainAlt(int32_t *base_alt, int32_t *curr_pres, int32_t *height)
 {
     calcHeight(curr_pres, base_alt, height);
+    int32_t height_in_ft;
+    convertToFeet(&height_in_ft, height);
 
-    return (*height <= 3000);
+    return (height_in_ft <= 3000);
 }
 
 /*
@@ -151,7 +172,7 @@ static bool detectMainAlt(uint32_t *base_alt)
 @param base_alt The base altitude.
 @return Boolean
 */
-static bool detectLanded(uint32_t *base_alt, uint32_t *curr_pres, uint32_t *height)
+static bool detectLanded(int32_t *base_alt, int32_t *curr_pres, int32_t *height)
 {
     *prev_height = *height
     calcHeight(curr_pres, base_alt, height);
@@ -183,18 +204,18 @@ int main()
     } while (retval != STATUS_OK);
 
     /* DON'T RESET THESE IN CASE OF BLACKOUT */
-    uint32_t *base_pres;
-    uint32_t *base_temp;
-    uint32_t *base_alt;
+    int32_t base_pres;
+    int32_t base_temp;
+    int32_t base_alt;
 
     /* For testApogee function */
-    uint32_t *test_ap_height = 0;
+    int32_t test_ap_height = 0;
 
     /* For detectLanded function */
-    uint32_t *land_det_height = 0;
+    int32_t land_det_height = 0;
     
     /* don't mind resetting these */
-    int reset_count = NUM_CHECKS
+    int reset_count = NUM_CHECKS;
     int launch_count = NUM_CHECKS;
     int burnout_count = NUM_CHECKS;
     int apogee_count = NUM_CHECKS;
@@ -206,25 +227,35 @@ int main()
     while (1) {
         switch(curr_state) {
             case APDET_STATE_TESTING:
-                int16_t *accel;
-                status_t retval = accelerometerGetData(accel); /* TODO: account for all directions of acceleration */
+                int16_t accel_x, accel_y, accel_z;
+                status_t retval = accelerometerGetData(&accel_x, &accel_y, &accel_z);
                 if (retval != STATUS_OK) {
                     break;
                 }
-                if (testStandby(accel, base_pres, base_temp, base_alt)) {
-                    /* TODO: Update/store base_pres,temp and alt in flash */
+                int16_t accel;
+                retval = totalAccel(&accel, &accel_x, &accel_y, &accel_z);
+                if (retval != STATUS_OK) {
+                    break;
+                }
+                if (testStandby(&accel, &base_pres, &base_temp, &base_alt)) {
+                    /* TODO: Update/store base_pres, temp and alt in flash */
                 } else {
                     /* TODO: Get them from flash memory (assume we already set them earlier) */
                 }
                 break;
 
             case APDET_STATE_STANDBY:
-                int16_t *accel;
-                status_t retval = accelerometerGetData(accel); /* TODO: account for all directions of acceleration */
+                int16_t accel_x, accel_y, accel_z;
+                status_t retval = accelerometerGetData(&accel_x, &accel_y, &accel_z);
                 if (retval != STATUS_OK) {
                     break;
                 }
-                if (detectLaunch(accel)) {
+                int16_t accel;
+                retval = totalAccel(&accel, &accel_x, &accel_y, &accel_z);
+                if (retval != STATUS_OK) {
+                    break;
+                }
+                if (detectLaunch(&accel)) {
                     launch_count--;
                     if (launch_count <= 0) {
                         curr_state = APDET_STATE_POWERED_ASCENT;
@@ -237,12 +268,17 @@ int main()
                 break;
 
             case APDET_STATE_POWERED_ASCENT:
-                int16_t *accel;
-                status_t retval = accelerometerGetData(accel);
+                int16_t accel_x, accel_y, accel_z;
+                status_t retval = accelerometerGetData(&accel_x, &accel_y, &accel_z);
                 if (retval != STATUS_OK) {
                     break;
                 }
-                if (detectBurnout(accel)) {
+                int16_t accel;
+                retval = totalAccel(&accel, &accel_x, &accel_y, &accel_z);
+                if (retval != STATUS_OK) {
+                    break;
+                }
+                if (detectBurnout(&accel)) {
                     burnout_count--;
                     if (burnout_count <= 0) {
                         curr_state = APDET_STATE_COASTING;
@@ -255,12 +291,23 @@ int main()
                 break;
 
             case APDET_STATE_COASTING:
-                uint32_t *curr_pres;
-                status_t retval = barometerGetCompensatedPressure(curr_pres);
+                int16_t accel_x, accel_y, accel_z;
+                retval = accelerometerGetData(&accel_x, &accel_y, &accel_z);
                 if (retval != STATUS_OK) {
                     break;
                 }
-                if (testApogee(base_alt, curr_pres, test_ap_height)) {
+                int16_t accel;
+                retval = totalAccel(&accel, &accel_x, &accel_y, &accel_z);
+                if (retval != STATUS_OK) {
+                    break;
+                }
+                int32_t curr_pres;
+                status_t retval = barometerGetCompensatedPressure(&curr_pres);
+                if (retval != STATUS_OK) {
+                    break;
+                }
+                /* TODO: beef up apdet algo */
+                if (testApogee(&base_alt, &curr_pres, &test_ap_height)) {
                     apogee_count--;
                     if (apogee_count <= 0) {
                         curr_state = APDET_STATE_DEPLOY_DROGUE;
@@ -288,13 +335,13 @@ int main()
                 break;
 
             case APDET_STATE_INITIAL_DESCENT:
-                uint32_t *curr_pres;
-                uint32_t *height = 0;
-                status_t retval = barometerGetCompensatedPressure(curr_pres);
+                int32_t curr_pres;
+                int32_t height = 0;
+                status_t retval = barometerGetCompensatedPressure(&curr_pres);
                 if (retval != STATUS_OK) {
                     break;
                 }
-                if (detectMainAlt(base_alt, curr_pres, height)) {
+                if (detectMainAlt(&base_alt, &curr_pres, &height)) {
                     main_count--;
                     if (main_count <= 0) {
                         curr_state = APDET_STATE_DEPLOY_MAIN;
@@ -314,12 +361,12 @@ int main()
                 break;
 
             case APDET_STATE_FINAL_DESCENT:
-                uint32_t *curr_pres;
-                status_t retval = barometerGetCompensatedPressure(curr_pres);
+                int32_t curr_pres;
+                status_t retval = barometerGetCompensatedPressure(&curr_pres);
                 if (retval != STATUS_OK) {
                     break;
                 }
-                if (detectLanded(base_alt, curr_pres, land_det_height)){
+                if (detectLanded(&base_alt, &curr_pres, &land_det_height)){
                     land_count--;
                     if (land_count <= 0) {
                         curr_state = APDET_STATE_LANDED
@@ -332,8 +379,12 @@ int main()
                 break;
 
             case APDET_STATE_LANDED:
-                /* will continue looping */
+                /* LANDED STATE */
                 break;
+
+            default:
+            	/* ERROR STATE */
+            	break;
         }
     }
 
