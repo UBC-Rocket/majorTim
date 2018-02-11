@@ -8,8 +8,10 @@ jobs:
       - run:
           name: Build project
           command: |
-            ./dmake.sh apdet-hanna
-            ./dmake.sh sharetest
+            cd apdet-hanna
+            ./build.sh
+            cd ../sharedtest
+            ./build.sh
 
       - store_artifacts:
           path: /builds/
