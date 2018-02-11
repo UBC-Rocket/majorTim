@@ -1,286 +1,163 @@
 /*
 Hardware-independent functions from apdet.h
 */
+#include <apdet.h>
+#include <shared/i2c_driver.c>
+#include <general.h>
+
+/* CONSTANTS ============================================================================================= */
+
+#define SIM_LAUNCH_ACCEL               40  /* 40 is old value, ask Ollie assuming sims are accurate, > 40 */
+                                           /* should be accel of least accelerating rocket */
+#define SIM_BURNOUT_ACCEL_DELTA         4  /* 4 is old value, ask Ollie */
+
+#define NUM_CHECKS                      5  /* each condition has to pass 5 times */
+#define NUM_WRITE_ATTEMPTS              5  /* 5 is temp value, tbd from testing */
+
+#define P_0                       1013.25  /* pressure at 0 altitude (mb) */
+#define T_0                        288.15  /* temperature at 0 altitude (K) */
+#define L                         -0.0065  /* lapse rate (valid for heights between 0km and 11km) (K/m) */
+#define R                         287.053  /* gas constant for air (J/(kg K))*/
+#define g                         9.80665  /* gravitational acceleration (m/s^2) */
 
 /* STATIC HELPER FUNCTIONS / DRIVERS ===================================================================== */
 
 /*
 @brief Drogue deployment driver.
-@return void
+@return Status
 */
-extern void deploy_drogue()
+extern status_t deployDrogue()
 {
-	/* TODO */
-	return STATUS_OK;
+    /* TODO */
+    return STATUS_OK;
 }
 
 /*
 @brief Payload deployment driver.
-@return void
+@return Status
 */
-extern void deploy_payload()
+extern status_t deployPayload()
 {
-	/* TODO */
-	return STATUS_OK;
+    /* TODO */
+    return STATUS_OK;
 }
 
 /*
 @brief Main deployment driver.
-@return void
+@return Status
 */
-extern void deploy_main()
+extern status_t deployMain()
 {
-	/* TODO */
-	return STATUS_OK;
+    /* TODO */
+    return STATUS_OK;
 }
 
 /*
-@brief Altitude calculator. Implementation of the international barometric formula (no temperature needed)
-Pressure is in millibars.
-@return altitude IN METERS (can convert to feet)
+@brief Altitude calculator.
+@param curr_pres The current pressure.
+@param alt A pointer to store the current altitude.
+@return Altitude IN METERS.
 */
-extern double calc_alt(int32_t curr_pres, int32_t base_pres)
+extern status_t calcAlt(uint32_t *curr_pres, uint32_t *alt)
 {
-	return 44330*(1-(curr_pres/base_pres)^(1/5.255));
+    *alt = T_0/L*((*curr_pres/P_0)^(-L*R/g)-1);
+
+    return STATUS_OK;
 }
 
 /*
-@brief Initial reading. Pressure is in millibars.
-@return ...
+@brief Height above ground (base altitude) calculator.
+@param curr_pres The current pressure.
+@param base_alt The base altitude.
+@param height A pointer to store the current height.
+@return Height IN METERS (can convert to feet)
 */
-extern initial_reading(double *base_pressure, double *base_temperature)
+extern status_t calcHeight(uint32_t *curr_pres, uint32_t *base_alt, uint32_t *height)
 {
-	return void;
+    uint32_t *curr_alt;
+    calcAlt(curr_pres, curr_alt);
+    *height = *curr_alt - *base_alt;
+
+    return STATUS_OK;
 }
 
 /* ROCKET FLIGHT STATE FUNCTIONS ================================================================= */
 
+/* TODO: Documentation */
+
 /*
-@brief Transitions from STANDBY to POWERED_ASCENT after seeing NUM_CHECKS positive accelerations in a row.
-@return void
+@brief Returns true if rocket is in standby, else assume blackout
+@return Boolean
 */
-static void detect_launch(void)
+static bool testStandby(int16_t *accel, uint32_t *base_pres, uint32_t *base_temp, uint32_t *base_alt)
 {
-	/* expect giant spike in acceleration */
-	int launch_count = 0;
-	float accel = 0;
-	
-	while (launch_count < NUM_CHECKS) { 
+    barometerGetCompensatedValues(base_pres, base_temp);
+    calcAlt(base_pres, base_alt);
+    /* TODO: check that acceleration is ≈ 0 AND base_alt is around what we expect */
+}
 
-		can_id_t can_id;
-		float can_msg;
-		void retval = canRead(&can_id, (uint64_t *) &can_msg);
-		if (retval != STATUS_OK || can_id != CAN_ID_SENSOR_ACCEL_Z) {
-			continue;
-		}
-
-		accel = can_msg;
-
-		if (accel >= SIM_LAUNCH_ACCEL) {
-			launch_count++;
-		} else {
-			launch_count = 0;
-		}
-	}
-
-	void retval = STATUS_ERROR;
-	for (int i = 0; i < NUM_WRITE_ATTEMPTS && retval != STATUS_OK; i++) {
-		retval = canWrite(CAN_ID_APDET_STATE, APDET_STATE_POWERED_ASCENT);
-	}
-	return STATUS_OK;
+/*
+@brief Detects launch
+@return Boolean
+*/
+static bool detectLaunch(int16_t *accel)
+{
+    /* expect giant spike in acceleration */
+    return (*accel >= SIM_LAUNCH_ACCEL);
+    /* TODO: account for all directions of acceleration */
 }
 
 /*
 @brief Transitions from POWERED_ASCENT to COASTING after seeing NUM_CHECKS negative accelerations in a row.
-@return void
+@return Boolean
 */
-static void detect_burnout(void)
+static bool detectBurnout(int16_t *accel)
 {
-	/* involve time to double check / as a backup? Check reasonable altitude?
-	Data may not be stable at this point */
-	int burnout_count = 0;
-	float accel = 0;
-
-	while (burnout_count < NUM_CHECKS) {
-
-		can_id_t can_id;
-		float can_msg;
-		void retval = canRead(&can_id, (uint64_t *) &can_msg);
-		if (retval != STATUS_OK || can_id != CAN_ID_SENSOR_ACCEL_Z) {
-			continue;
-		}
-
-		accel = can_msg;
-
-		if (accel <= 0) {
-			burnout_count++;
-		} else {
-			burnout_count = 0;
-		}
-	}
-
-	void retval = STATUS_ERROR;
-	for (int i = 0; i < NUM_WRITE_ATTEMPTS && retval != STATUS_OK; i++) {
-		retval = canWrite(CAN_ID_APDET_STATE, APDET_STATE_COASTING);
-	}
-	return STATUS_OK;
+    /* involve time to double check / as a backup? Check reasonable altitude?
+    Data may not be stable at this point */
+    return (*accel <= 0);
+    /* TODO: account for all directions of acceleration */
 }
 
 /*
 @brief Transition from COASTING to DEPLOY DROGUE by checking altitude delta is negative.
-@return void
+@param base_alt The base altitude.
+@return Boolean
 */
-static void coasting_and_test_apogee(void)
+static bool testApogee(uint32_t *base_alt, uint32_t *curr_pres, uint32_t *height)
 {
 
-	/* check that acceleration is 0 or positive downwards (acc >= 0 ) too? */
-	int apogee_count = 0;
+    /* check that acceleration is 0 or positive downwards (acc >= 0 ) too? */
 
-	float alt = 0;
-	float prev_alt = 0;
+    uint32_t *prev_height = *height
+    calcHeight(curr_pres, base_alt, height);
 
-	while (apogee_count < NUM_CHECKS) {
-
-		can_id_t can_id;
-		float can_msg;
-		void retval = canRead(&can_id, (uint64_t *) &can_msg);
-		if (retval != STATUS_OK || can_id != CAN_ID_SENSOR_CALC_ALTITUDE) {
-			continue;
-		}
-
-		prev_alt = alt;
-		alt = can_msg;
-
-		if (alt <= prev_alt) {
-			apogee_count++;
-		} else {
-			apogee_count = 0;
-		}
-	}
-
-	void retval = STATUS_ERROR;
-	for (int i = 0; i < NUM_WRITE_ATTEMPTS && retval != STATUS_OK; i++) {
-		retval = canWrite(CAN_ID_APDET_STATE, APDET_STATE_DEPLOY_DROGUE);
-	}
-	return STATUS_OK;
-}
-
-
-/*
-@brief Actually deploys the drogue, waits 3s and transitions from DEPLOY_DROGUE to DEPLOY_PAYLOAD.
-@return void
-*/
-static void deploy_drogue_state(void)
-{
-	deploy_drogue();
-	delay(3);
-
-	void retval = STATUS_ERROR;
-	for (int i = 0; i < NUM_WRITE_ATTEMPTS && retval != STATUS_OK; i++) {
-		retval = canWrite(CAN_ID_APDET_STATE, APDET_STATE_DEPLOY_PAYLOAD);
-	}
-	return STATUS_OK;
+    return (*height <= *prev_height);
 }
 
 /*
-@brief Actually deploys the payload, then transitions from DEPLOY_PAYLOAD to INITIAL_DESCENT.
-@return void
+@brief Transitions from INITIAL_DESCENT to DEPLOY_MAIN after rocket's alt <= 3000 ft.
+@param base_alt The base altitude.
+@return Boolean
 */
-static void deploy_payload_state(void)
+static bool detectMainAlt(uint32_t *base_alt)
 {
-	deploy_payload();
+    calcHeight(curr_pres, base_alt, height);
 
-	void retval = STATUS_ERROR;
-	for (int i = 0; i < NUM_WRITE_ATTEMPTS && retval != STATUS_OK; i++) {
-		retval = canWrite(CAN_ID_APDET_STATE, APDET_STATE_INITIAL_DESCENT);
-	}
-	return STATUS_OK;
+    return (*height <= 3000);
 }
 
 /*
-@brief transitions from INITIAL_DESCENT to DEPLOY_MAIN after rocket's alt <= 3000 ft.
-@return void
+@brief Transitions from transitions from FINAL_DESCENT to LANDED.
+@param base_alt The base altitude.
+@return Boolean
 */
-static void detect_main_alt(void)
+static bool detectLanded(uint32_t *base_alt, uint32_t *curr_pres, uint32_t *height)
 {
-	int main_count = 0;
-	float alt = 0;
+    *prev_height = *height
+    calcHeight(curr_pres, base_alt, height);
 
-	while (main_count < NUM_CHECKS) {
-
-		can_id_t can_id;
-		float can_msg;
-		void retval = canRead(&can_id, (uint64_t *) &can_msg);
-		if (retval != STATUS_OK || can_id != CAN_ID_SENSOR_CALC_ALTITUDE) {
-			continue;
-		}
-
-		alt = can_msg;
-
-		if (alt <= 3000) {
-			main_count++;
-		} else {
-			main_count = 0;
-		}
-	}
-
-	void retval = STATUS_ERROR;
-	for (int i = 0; i < NUM_WRITE_ATTEMPTS && retval != STATUS_OK; i++) {
-		retval = canWrite(CAN_ID_APDET_STATE, APDET_STATE_DEPLOY_MAIN);
-	}
-	return STATUS_OK;
-}
-
-/*
-@brief Actually deploys the main parachute, then transitions from DEPLOY_MAIN to FINAL_DESCENT.
-@return void
-*/
-static void deploy_main_state(void)
-{
-	deploy_main();
-
-	void retval = STATUS_ERROR;
-	for (int i = 0; i < NUM_WRITE_ATTEMPTS && retval != STATUS_OK; i++) {
-		retval = canWrite(CAN_ID_APDET_STATE, APDET_STATE_FINAL_DESCENT);
-	}
-	return STATUS_OK;
-}
-
-/*
-@brief Actually deploys the main parachute, then transitions from transitions from FINAL_DESCENT to LANDED.
-@return void
-*/
-static void final_descent(void)
-{
-	int land_count = 0;
-
-	float alt = 0;
-	float prev_alt = 0;
-
-	while (land_count < NUM_CHECKS) {
-
-		can_id_t can_id;
-		float can_msg;
-		void retval = canRead(&can_id, (uint64_t *) &can_msg);
-		if (retval != STATUS_OK || can_id != CAN_ID_SENSOR_CALC_ALTITUDE) {
-			continue;
-		}
-
-		prev_alt = alt;
-		alt = can_msg;
-
-		if (alt == prev_alt) { /* give error bound? */
-			land_count++;
-		} else {
-			land_count = 0;
-		}
-	}
-
-	void retval = STATUS_ERROR;
-	for (int i = 0; i < NUM_WRITE_ATTEMPTS && retval != STATUS_OK; i++) {
-		retval = canWrite(CAN_ID_APDET_STATE, APDET_STATE_LANDED);
-	}
-	return STATUS_OK;
+    return (*height == *prev_height);
 }
 
 
@@ -288,26 +165,179 @@ static void final_descent(void)
 
 /**
  * @brief Apogee Detection board routine - hardware-independent implementation.
- * @return Status.
+ * @return Status
  */
 int main()
 {
-	void retval = canInit();
-	if (retval != STATUS_OK) {
-		return retval;
-	}
-	double base_pres;
-	double base_temp;
-	initial_reading(&base_pres, &base_temp);
-	detect_launch();
-	detect_burnout();
-	coasting_and_test_apogee();
-	deploy_drogue_state();
-	deploy_payload_state();
-	detect_main_alt();
-	deploy_main_state();
-	final_descent();
+    status_t retval;
 
-	while (1) {}
-	return 0;
+    do {
+        retval = i2cInit();
+    } while (retval != STATUS_OK);
+
+    do {
+        retval = barometerInit();
+    } while (retval != STATUS_OK);
+    
+    do {
+        retval = accelerometerInit();
+    } while (retval != STATUS_OK);
+
+    /* DON'T RESET THESE IN CASE OF BLACKOUT */
+    uint32_t *base_pres;
+    uint32_t *base_temp;
+    uint32_t *base_alt;
+
+    /* For testApogee function */
+    uint32_t *test_ap_height = 0;
+
+    /* For detectLanded function */
+    uint32_t *land_det_height = 0;
+    
+    /* don't mind resetting these */
+    int reset_count = NUM_CHECKS
+    int launch_count = NUM_CHECKS;
+    int burnout_count = NUM_CHECKS;
+    int apogee_count = NUM_CHECKS;
+    int main_count = NUM_CHECKS;
+    int land_count = NUM_CHECKS;
+
+    state_t curr_state APDET_STATE_TESTING; /* write to and read from flash memory */
+
+    while (1) {
+        switch(curr_state) {
+            case APDET_STATE_TESTING:
+                int16_t *accel;
+                status_t retval = accelerometerGetData(accel); /* TODO: account for all directions of acceleration */
+                if (retval != STATUS_OK) {
+                    break;
+                }
+                if (testStandby(accel, base_pres, base_temp, base_alt)) {
+                    /* TODO: Update/store base_pres,temp and alt in flash */
+                } else {
+                    /* TODO: Get them from flash memory (assume we already set them earlier) */
+                }
+                break;
+
+            case APDET_STATE_STANDBY:
+                int16_t *accel;
+                status_t retval = accelerometerGetData(accel); /* TODO: account for all directions of acceleration */
+                if (retval != STATUS_OK) {
+                    break;
+                }
+                if (detectLaunch(accel)) {
+                    launch_count--;
+                    if (launch_count <= 0) {
+                        curr_state = APDET_STATE_POWERED_ASCENT;
+                        /* TODO: Save state to flash memory */
+                        /* TODO: Write state to SD card using SPI */
+                    }
+                } else {
+                    launch_count = NUM_CHECKS; /* ensures "in a row" */
+                }
+                break;
+
+            case APDET_STATE_POWERED_ASCENT:
+                int16_t *accel;
+                status_t retval = accelerometerGetData(accel);
+                if (retval != STATUS_OK) {
+                    break;
+                }
+                if (detectBurnout(accel)) {
+                    burnout_count--;
+                    if (burnout_count <= 0) {
+                        curr_state = APDET_STATE_COASTING;
+                        /* TODO: Save state to flash memory */
+                        /* TODO: Write state to SD card using SPI */
+                    }
+                } else {
+                    burnout_count = NUM_CHECKS;
+                }
+                break;
+
+            case APDET_STATE_COASTING:
+                uint32_t *curr_pres;
+                status_t retval = barometerGetCompensatedPressure(curr_pres);
+                if (retval != STATUS_OK) {
+                    break;
+                }
+                if (testApogee(base_alt, curr_pres, test_ap_height)) {
+                    apogee_count--;
+                    if (apogee_count <= 0) {
+                        curr_state = APDET_STATE_DEPLOY_DROGUE;
+                        /* TODO: Save state to flash memory */
+                        /* TODO: Write state to SD card using SPI */
+                    }
+                } else {
+                    apogee_count = NUM_CHECKS;
+                }
+                break;
+
+            case APDET_STATE_DEPLOY_DROGUE:
+                deploy_drogue();
+                curr_state = APDET_STATE_DEPLOY_PAYLOAD;
+                /* TODO: Save state to flash memory */
+                /* TODO: Write state to SD card using SPI */
+                delay(3); /* ^ in case blackout occurs here */
+                break;
+
+            case APDET_STATE_DEPLOY_PAYLOAD:
+                deploy_payload();
+                curr_state = APDET_STATE_INITIAL_DESCENT;
+                /* TODO: Save state to flash memory */
+                /* TODO: Write state to SD card using SPI */
+                break;
+
+            case APDET_STATE_INITIAL_DESCENT:
+                uint32_t *curr_pres;
+                uint32_t *height = 0;
+                status_t retval = barometerGetCompensatedPressure(curr_pres);
+                if (retval != STATUS_OK) {
+                    break;
+                }
+                if (detectMainAlt(base_alt, curr_pres, height)) {
+                    main_count--;
+                    if (main_count <= 0) {
+                        curr_state = APDET_STATE_DEPLOY_MAIN;
+                        /* TODO: Save state to flash memory */
+                        /* TODO: Write state to SD card using SPI */
+                    }
+                } else {
+                    main_count = NUM_CHECKS;
+                }
+                break;
+
+            case APDET_STATE_DEPLOY_MAIN:
+                deploy_main();
+                curr_state = APDET_STATE_FINAL_DESCENT;
+                /* TODO: Save state to flash memory */
+                /* TODO: Write state to SD card using SPI */
+                break;
+
+            case APDET_STATE_FINAL_DESCENT:
+                uint32_t *curr_pres;
+                status_t retval = barometerGetCompensatedPressure(curr_pres);
+                if (retval != STATUS_OK) {
+                    break;
+                }
+                if (detectLanded(base_alt, curr_pres, land_det_height)){
+                    land_count--;
+                    if (land_count <= 0) {
+                        curr_state = APDET_STATE_LANDED
+                        /* TODO: Save state to flash memory */
+                        /* TODO: Write state to SD card using SPI */
+                    }
+                } else {
+                    land_count = NUM_CHECKS;
+                }
+                break;
+
+            case APDET_STATE_LANDED:
+                /* should I continue instead of breaking? */
+                break;
+        }
+    }
+
+    while (1) {}
+    return 0;
 }
