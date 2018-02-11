@@ -1,3 +1,9 @@
+# Ensure we aren't building from the repo root
+if [ ! -d src ]; then
+	echo "Cannot build from root"
+	exit
+fi
+
 # TODO: Change this to a command that moves the repo out of Downloads
 if [[ "$PWD" = */Downloads/* ]] || [[ "$PWD" = */downloads/* ]] ; then
 	figlet "Don't clone to Downloads, Will"
