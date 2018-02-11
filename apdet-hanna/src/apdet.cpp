@@ -1,7 +1,7 @@
 /*
 Hardware-independent functions from apdet.h
 */
-#include <shared/i2c_driver.c>
+#include <i2c_driver.h>
 #include <general.h>
 
 /* CONSTANTS ============================================================================================= */
@@ -336,6 +336,6 @@ int main()
                 break;
         }
     }
-    
+
     return 0;
 }
