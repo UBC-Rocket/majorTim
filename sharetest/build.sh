@@ -1,3 +1,4 @@
+#!/bin/bash
 export BUILD_DIR=BUILD-SHARETEST
 export BOARD=sharetest
 

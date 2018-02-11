@@ -1,3 +1,4 @@
+#!/bin/bash
 export BUILD_DIR=BUILD-APDET
 export BOARD=apdet
 

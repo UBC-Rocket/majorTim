@@ -1,3 +1,4 @@
+#!/bin/bash
 # Ensure we aren't building from the repo root
 if [ ! -d src ]; then
 	echo "Cannot build from root"
