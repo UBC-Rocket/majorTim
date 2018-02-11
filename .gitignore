@@ -68,7 +68,6 @@ CMakeLists.txt
 cmake-build-debug
 
 #Build img folders
-builds
 builds/*
 
 # Local build artefacts

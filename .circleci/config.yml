@@ -8,10 +8,12 @@ jobs:
       - run:
           name: Build project
           command: |
-            cd apdet_hanna
-            sed 's:BINPATH = :BINPATH=/home/rkt/gcc-arm-none-eabi-7-2017-q4-major/bin:' Makefile > Makefile_with_path
-            make -f Makefile_with_path
-            cp build/apdet_hanna.bin /tmp/apdet_hanna.bin
+            cd apdet-hanna
+            cd ../sharetest
+            ./build.sh
+            cd ../
+            ls -l
+            pwd
 
       - store_artifacts:
-          path: /tmp/
+          path: builds/
