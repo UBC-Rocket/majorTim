@@ -68,8 +68,7 @@ CMakeLists.txt
 cmake-build-debug
 
 #Build img folders
-builds
-builds/*
+builds/*.bin
 
 # Local build artefacts
 shared/mbed/BUILD-*/*
