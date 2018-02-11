@@ -5,6 +5,11 @@ if [ ! -d src ]; then
 	exit
 fi
 
+if [ -z $BUILD_DIR ] || [ -z $BOARD ]; then
+	echo "Build variables not set. Call build.sh in a board directory"
+	exit
+fi
+
 # TODO: Change this to a command that moves the repo out of Downloads
 if [[ "$PWD" = */Downloads/* ]] || [[ "$PWD" = */downloads/* ]] ; then
 	figlet "Don't clone to Downloads, Will"
@@ -52,11 +57,13 @@ if [ ! $1 ] || [ $1 = build ]; then
 		echo -e '\033[0;31m'
 		figlet "Build Failed"
 		echo -e '\033[0m'
+		exit -1
 	else
 		echo -e '\033[0;32m'
 		figlet "Build Successful!"
 		echo -e '\033[0m'
 		cp $BUILD_DIR/mbed.bin "../builds/"$BOARD"_"$(date +"%Y%m%d_%H%M%S").bin
+		exit 0
 	fi
 
 # Flash the image to a board
