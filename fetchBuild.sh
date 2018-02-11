@@ -7,4 +7,10 @@ else
 	mkdir -p builds/build-$1
 	cd builds/build-$1
 	wget https://$1-118362338-gh.circle-artifacts.com/0/root/project/builds/apdet-hanna.bin
+	wget https://$1-118362338-gh.circle-artifacts.com/0/root/project/builds/sharetest.bin
+
+	if [ -n "$2" ]; then
+		#Flash img to a board
+		st-flash write $2.bin 0x8000000
+	fi
 fi
