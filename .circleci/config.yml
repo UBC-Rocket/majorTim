@@ -11,6 +11,8 @@ jobs:
             cd apdet-hanna
             cd ../sharetest
             ./build.sh
+            cd ../
+            ls -l
 
       - store_artifacts:
           path: /builds/
