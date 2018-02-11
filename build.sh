@@ -1,3 +1,10 @@
+#!/bin/bash
+# Ensure we aren't building from the repo root
+if [ ! -d src ]; then
+	echo "Cannot build from root"
+	exit
+fi
+
 # TODO: Change this to a command that moves the repo out of Downloads
 if [[ "$PWD" = */Downloads/* ]] || [[ "$PWD" = */downloads/* ]] ; then
 	figlet "Don't clone to Downloads, Will"
@@ -36,7 +43,7 @@ if [ ! $1 ] || [ $1 = build ]; then
 
 	# Build
 	echo Building $BOARD board
-	make -f makefile-mbed \
+	make -j16 -f makefile-mbed \
      	 UBCR_TARGETDIR=$BUILD_DIR \
          UBCR_SHAREDDIR=ubcr_shared \
 	     UBCR_O_FILES=$O_FILES
@@ -49,6 +56,7 @@ if [ ! $1 ] || [ $1 = build ]; then
 		echo -e '\033[0;32m'
 		figlet "Build Successful!"
 		echo -e '\033[0m'
+		cp $BUILD_DIR/mbed.bin "../builds/"$BOARD"_"$(date +"%Y%m%d_%H%M%S").bin
 	fi
 
 # Flash the image to a board
