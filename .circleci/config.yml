@@ -9,9 +9,11 @@ jobs:
           name: Build project
           command: |
             cd apdet-hanna
+            cd ../sharetest
             ./build.sh
-            cd ../sharedtest
-            ./build.sh
+            cd ../
+            ls -l
+            pwd
 
       - store_artifacts:
-          path: /builds/
+          path: builds/
