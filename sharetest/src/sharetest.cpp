@@ -8,8 +8,8 @@ DigitalOut led1(LED1);
 
 int main(void) 
 {
-    uint32_t p = 0;
-    uint32_t t = 0;
+    int32_t p = 0;
+    int32_t t = 0;
     int16_t x = 0;
     int16_t y = 0;
     int16_t z = 0;
