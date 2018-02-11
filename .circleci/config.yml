@@ -13,6 +13,7 @@ jobs:
             ./build.sh
             cd ../
             ls -l
+            pwd
 
       - store_artifacts:
-          path: /builds/
+          path: builds/
