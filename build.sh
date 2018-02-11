@@ -55,6 +55,7 @@ if [ ! $1 ] || [ $1 = build ]; then
 		echo -e '\033[0;32m'
 		figlet "Build Successful!"
 		echo -e '\033[0m'
+		cp $BUILD_DIR/mbed.bin "../builds/"$BOARD"_"$(date +"%Y%m%d_%H%M%S").bin
 	fi
 
 # Flash the image to a board
