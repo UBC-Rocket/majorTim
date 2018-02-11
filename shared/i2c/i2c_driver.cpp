@@ -26,7 +26,7 @@ static uint16_t barometer_calibration[6];
   */
 extern status_t i2cRead(uint16_t address, uint8_t *data, uint16_t size)
 {
-    if (i2c.read((int)address, (char*)data, (int)size, FALSE) != 0) {
+    if (i2c.read((int)address, (char*)data, (int)size, false) != 0) {
         return STATUS_ERROR;
     }
 
@@ -43,7 +43,7 @@ extern status_t i2cRead(uint16_t address, uint8_t *data, uint16_t size)
   */
 extern status_t i2cWrite(uint16_t address, uint8_t *data, uint16_t size)
 {
-    if (i2c.write((int)address, (char*)data, (int)size, FALSE) != 0) {
+    if (i2c.write((int)address, (char*)data, (int)size, false) != 0) {
         return STATUS_ERROR;
     }
 
@@ -187,11 +187,11 @@ extern status_t barometerGetUncompensatedValues(uint32_t *d1, uint32_t *d2)
   * @param  temperature A pointer to store compensated temperature value
   * @retval Status
   */
-extern status_t barometerCompensateValues(uint32_t d1, uint32_t d2, uint32_t *pressure, uint32_t *temperature)
+extern status_t barometerCompensateValues(uint32_t d1, uint32_t d2, int32_t *pressure, int32_t *temperature)
 {
-    uint32_t dt, p, t;
+    int32_t dt, p, t;
     int64_t off, sens;
-    uint32_t t2 = 0;
+    int32_t t2 = 0;
     int64_t off2 = 0;
     int64_t sens2 = 0;
 
@@ -230,19 +230,16 @@ extern status_t barometerCompensateValues(uint32_t d1, uint32_t d2, uint32_t *pr
   * @param  temperature A pointer to store compensated temperature value
   * @retval Status
   */
-extern status_t barometerGetCompensatedValues(uint32_t *pressure, uint32_t *temperature)
+extern status_t barometerGetCompensatedValues(int32_t *pressure, int32_t *temperature)
 {
-    uint32_t d1, d2, p, t;
+    uint32_t d1, d2;
 
     if (barometerGetUncompensatedValues(&d1, &d2) != STATUS_OK) {
         return STATUS_ERROR;
     }
-    if (barometerCompensateValues(d1, d2, &p, &t) != STATUS_OK) {
+    if (barometerCompensateValues(d1, d2, pressure, temperature) != STATUS_OK) {
         return STATUS_ERROR;
     }
-
-    *pressure = p;
-    *temperature = t;
 
     return STATUS_OK;
 }
@@ -254,16 +251,15 @@ extern status_t barometerGetCompensatedValues(uint32_t *pressure, uint32_t *temp
   */
 extern status_t barometerGetCompensatedPressure(uint32_t *pressure)
 {
-    uint32_t d1, d2, p, t;
+    uint32_t d1, d2;
+    int32_t t;
 
     if (barometerGetUncompensatedValues(&d1, &d2) != STATUS_OK) {
         return STATUS_ERROR;
     }
-    if (barometerCompensateValues(d1, d2, &p, &t) != STATUS_OK) {
+    if (barometerCompensateValues(d1, d2, pressure, &t) != STATUS_OK) {
         return STATUS_ERROR;
     }
-
-    *pressure = p;
 
     return STATUS_OK;
 }
