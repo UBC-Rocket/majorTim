@@ -31,7 +31,7 @@ int main(void)
         if (accelerometerGetData(&x, &y, &z) != STATUS_OK) {
             printf("ERROR: accelerometer get data failed :(\n");
         } else {
-            printf("X: %" PRId16 "Y: %" PRId16 "Z: %" PRId16 "\n", p, t); 
+            printf("X: %" PRId16 "Y: %" PRId16 "Z: %" PRId16 "\n", x, y, z); 
         }
     }
 }
