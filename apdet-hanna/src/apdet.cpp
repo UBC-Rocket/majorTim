@@ -7,10 +7,10 @@ Hardware-independent functions from apdet.h
 
 /* CONSTANTS ============================================================================================= */
 
-#define SIM_LAUNCH_ACCEL               40  /* 40 is old value, ask Ollie assuming sims are accurate, > 40 */
+#define SIM_LAUNCH_ACCEL               40  /* 40 is old value, ask Ollie assuming sims are accurat */
                                            /* should be accel of least accelerating rocket */
 #define SIM_BURNOUT_ACCEL_DELTA         4  /* 4 seconds till burnout (data is pretty trash during powered ascent) */
-#define ACCEL_BY_APOGEE		         0.15  /* fraction of accel that indicates we are close to apogee */
+#define ACCEL_NEAR_APOGEE		     0.15  /* accel that indicates we are close to apogee (g) */
 
 #define NUM_CHECKS                      5  /* each condition has to pass 5 times */
 #define NUM_WRITE_ATTEMPTS              5  /* 5 is temp value, tbd from testing */
@@ -61,7 +61,7 @@ extern status_t deployMain()
 */
 extern status_t calcAlt(int32_t *curr_pres, int32_t *alt)
 {
-    *alt = (T_0/L) * (pow((*curr_pres/P_0),(-L*R/g) - 1));
+    *alt = (T_0/L) * (pow((*curr_pres/P_0),(-L*R/g)) - 1);
 
     return STATUS_OK;
 }
@@ -100,7 +100,7 @@ extern status_t totalAccel(int16_t *accel, int16_t *accel_x, int16_t *accel_y, i
 	return STATUS_OK;
 }
 
-/* ROCKET FLIGHT STATE FUNCTIONS ================================================================= */
+/* ROCKET FLIGHT STATE TRANSITION DETECTION FUNCTIONS ==================================================== */
 
 /* TODO: Documentation */
 
@@ -123,7 +123,6 @@ static bool detectLaunch(int16_t *accel)
 {
     /* expect giant spike in acceleration */
     return (*accel >= SIM_LAUNCH_ACCEL);
-    /* TODO: account for all directions of acceleration */
 }
 
 /*
@@ -135,7 +134,15 @@ static bool detectBurnout(int16_t *accel)
     /* involve time to double check / as a backup? Check reasonable altitude?
     Data may not be stable at this point */
     return (*accel <= 0);
-    /* TODO: account for all directions of acceleration */
+}
+
+/*
+@brief Transitions from COASTING to APOGEE_TESTING after detecting an accel of ACCEL_NEAR_APOGEE g's.
+@return Boolean
+*/
+static bool nearingApogee(int16_t *accel)
+{
+    return (*accel <= ACCEL_NEAR_APOGEE);
 }
 
 /*
@@ -218,6 +225,7 @@ int main()
     int reset_count = NUM_CHECKS;
     int launch_count = NUM_CHECKS;
     int burnout_count = NUM_CHECKS;
+    int coasting_count = NUM_CHECKS;
     int apogee_count = NUM_CHECKS;
     int main_count = NUM_CHECKS;
     int land_count = NUM_CHECKS;
@@ -301,12 +309,24 @@ int main()
                 if (retval != STATUS_OK) {
                     break;
                 }
+                if (nearingApogee(&accel)) {
+                    coasting_count--;
+                    if (coasting_count <= 0) {
+                        curr_state = APDET_STATE_APOGEE_TESTING;
+                        /* TODO: Save state to flash memory */
+                        /* TODO: Write state to SD card using SPI */
+                    }
+                } else {
+                    coasting_count = NUM_CHECKS;
+                }
+                break;
+
+            case APDET_STATE_APOGEE_TESTING:
                 int32_t curr_pres;
                 status_t retval = barometerGetCompensatedPressure(&curr_pres);
                 if (retval != STATUS_OK) {
                     break;
                 }
-                /* TODO: beef up apdet algo */
                 if (testApogee(&base_alt, &curr_pres, &test_ap_height)) {
                     apogee_count--;
                     if (apogee_count <= 0) {
