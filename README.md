@@ -16,5 +16,5 @@ st-util
 ```
 From terminal 2
 ```bash
-gdb -ex "target extended-remote localhost:4242" sharetest/BUILD-SHARETEST/mbed.elf
+cd sharetest/BUILD-SHARETEST && arm-none-eabi-gdb -ex "target extended-remote localhost:4242" mbed.elf && cd -
 ```
