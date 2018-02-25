@@ -14,8 +14,8 @@ int main(void)
     int16_t y = 0;
     int16_t z = 0;
 
-    if (barometerInit() != STATUS_OK) {
-        printf("ERROR: barometer initialization failed :(\n");
+    while (barometerInit() != STATUS_OK) {
+        printf("ERROR: barometer initialization failed :(\r\n");
     }
 
     while (1) {
@@ -23,15 +23,15 @@ int main(void)
         // wait(SHARETEST_INTERVAL);
 
         if (barometerGetCompensatedValues(&p, &t) != STATUS_OK) {
-            printf("ERROR: barometer get compensated values failed :(\n");
+            printf("ERROR: barometer get compensated values failed :(\r\n");
         } else {
-            printf("Pressure: %" PRIu32 " Temperature: %" PRIu32 "\n", p, t); 
+            printf("Pressure: %" PRIu32 " Temperature: %" PRIu32 "\r\n", p, t); 
         }
 
         if (accelerometerGetData(&x, &y, &z) != STATUS_OK) {
-            printf("ERROR: accelerometer get data failed :(\n");
+            printf("ERROR: accelerometer get data failed :(\r\n");
         } else {
-            printf("X: %" PRId16 "Y: %" PRId16 "Z: %" PRId16 "\n", x, y, z); 
+            printf("X: %" PRId16 "Y: %" PRId16 "Z: %" PRId16 "\r\n", x, y, z); 
         }
     }*/
 
