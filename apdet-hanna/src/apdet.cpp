@@ -1,11 +1,11 @@
 /*
-Hardware-independent functions from apdet.h
+Hardware-independent functions.
 */
 #include <i2c_driver.h>
 #include <general.h>
 #include <math.h>
 
-/* CONSTANTS ============================================================================================= */
+/* CONSTANTS ================================================================================================ */
 
 #define SIM_LAUNCH_ACCEL               40  /* 40 is old value, ask Ollie assuming sims are accurat */
                                            /* should be accel of least accelerating rocket */
@@ -23,44 +23,46 @@ Hardware-independent functions from apdet.h
 #define R                         287.053  /* gas constant for air (J/(kg K))*/
 #define g                         9.80665  /* gravitational acceleration (m/s^2) */
 
-/* STATIC HELPER FUNCTIONS / DRIVERS ===================================================================== */
+/* DRIVERS ================================================================================================== */
 
-/*
-@brief  Drogue deployment driver.
-@return Status
-*/
+/**
+  * @brief  Drogue deployment driver.
+  * @return Status
+  */
 extern status_t deployDrogue()
 {
     /* TODO */
     return STATUS_OK;
 }
 
-/*
-@brief  Payload deployment driver.
-@return Status
-*/
+/**
+  * @brief  Payload deployment driver.
+  * @return Status
+  */
 extern status_t deployPayload()
 {
     /* TODO */
     return STATUS_OK;
 }
 
-/*
-@brief  Main deployment driver.
-@return Status
-*/
+/**
+  * @brief  Main deployment driver.
+  * @return Status
+  */
 extern status_t deployMain()
 {
     /* TODO */
     return STATUS_OK;
 }
 
-/*
-@brief  Altitude calculator.
-@param  curr_pres   The current pressure.
-@param  alt         A pointer to store the current altitude IN METERS.
-@return Status
-*/
+/* STATIC HELPER FUNCTIONS ================================================================================== */
+
+/**
+  * @brief  Altitude calculator.
+  * @param  curr_pres   The current pressure.
+  * @param  alt         A pointer to store the current altitude IN METERS.
+  * @return Status
+  */
 extern status_t calcAlt(int32_t *curr_pres, int32_t *alt)
 {
     *alt = (T_0/L) * (pow((*curr_pres/P_0),(-L*R/g)) - 1);
@@ -68,13 +70,13 @@ extern status_t calcAlt(int32_t *curr_pres, int32_t *alt)
     return STATUS_OK;
 }
 
-/*
-@brief  Height above ground (base altitude) calculator.
-@param  curr_pres   The current pressure.
-@param  base_alt    The base altitude.
-@param  height      A pointer to store the current height IN METERS.
-@return Status
-*/
+/**
+  * @brief  Height above ground (base altitude) calculator.
+  * @param  curr_pres   The current pressure.
+  * @param  base_alt    The base altitude.
+  * @param  height      A pointer to store the current height IN METERS.
+  * @return Status
+  */
 extern status_t calcHeight(int32_t *curr_pres, int32_t *base_alt, int32_t *height)
 {
     int32_t *curr_alt;
@@ -90,14 +92,14 @@ extern status_t convertToFeet(int32_t *height_in_ft, int32_t *height_in_m)
 	return STATUS_OK
 }
 
-/*
-@brief  Returns acceleration magnitude.
-@param  accel_x     The x-component of the acceleration.
-@param  accel_y     The y-component of the acceleration.
-@param  accel_z     The z-component of the acceleration.
-@param  accel       A pointer to store the magnitude of the acceleration.
-@return Status
-*/
+/**
+  * @brief  Returns acceleration magnitude.
+  * @param  accel_x     The x-component of the acceleration.
+  * @param  accel_y     The y-component of the acceleration.
+  * @param  accel_z     The z-component of the acceleration.
+  * @param  accel       A pointer to store the magnitude of the acceleration.
+  * @return Status
+  */
 extern status_t accelMagnitude(int16_t *accel, int16_t *accel_x, int16_t *accel_y, int16_t *accel_z)
 {
 	*accel = sqrt(pow(*accel_x,2)+pow(*accel_y,2)+pow(*accel_z,2));
@@ -105,7 +107,7 @@ extern status_t accelMagnitude(int16_t *accel, int16_t *accel_x, int16_t *accel_
 	return STATUS_OK;
 }
 
-/* ROCKET FLIGHT STATE TRANSITION DETECTION FUNCTIONS ==================================================== */
+/* ROCKET FLIGHT STATE TRANSITION DETECTION FUNCTIONS ======================================================= */
 
 /* 
 TODO LIST
@@ -118,36 +120,36 @@ TODO LIST
 - Incorporate data filtering?
 */
 
-/*
-@brief  Returns true if rocket is in standby (otherwise assume blackout occured).
-@param  accel       The current magnitude of the acceleration.
-@param  curr_pres   The current pressure (if in standby, this will be the base pressure).
-@param  curr_pres   The current temperature (if in standby, this will be the base temperature).
-@param  curr_alt    The current altitude (if in standby, this will be the base altitude).
-@return Boolean
-*/
+/**
+  * @brief  Returns true if rocket is in standby (otherwise assume blackout occured).
+  * @param  accel       The current magnitude of the acceleration.
+  * @param  curr_pres   The current pressure (if in standby, this will be the base pressure).
+  * @param  curr_pres   The current temperature (if in standby, this will be the base temperature).
+  * @param  curr_alt    The current altitude (if in standby, this will be the base altitude).
+  * @return Boolean
+  */
 static bool testStandby(int16_t *accel, int32_t *curr_pres, int32_t *curr_temp, int32_t *curr_alt)
 {
-    barometerGetCompensatedValues(base_pres, base_temp);
-    calcAlt(base_pres, base_alt);
+    barometerGetCompensatedValues(curr_pres, curr_temp);
+    calcAlt(curr_pres, curr_alt);
     /* TODO: check that acceleration is ≈ 0 AND base_alt is around what we expect */
 }
 
-/*
-@brief  Detects launch.
-@param  accel       The current magnitude of the acceleration.
-@return Boolean
-*/
+/** 
+  * @brief  Detects launch.
+  * @param  accel       The current magnitude of the acceleration.
+  * @return Boolean
+  */
 static bool detectLaunch(int16_t *accel)
 {
     return (*accel >= SIM_LAUNCH_ACCEL);
 }
 
-/*
-@brief  Detects burnout.
-@param  accel       The current magnitude of the acceleration.
-@return Boolean
-*/
+/** 
+  * @brief  Detects burnout.
+  * @param  accel       The current magnitude of the acceleration.
+  * @return Boolean
+  */
 static bool detectBurnout(int16_t *accel)
 {
     /* Involve time to double check / as a backup? Check reasonable altitude?
@@ -155,24 +157,24 @@ static bool detectBurnout(int16_t *accel)
     return (*accel <= 0);
 }
 
-/*
-@brief  Determines whether rocket is nearing apogee.
-@param  accel       The current magnitude of the acceleration.
-@return Boolean
-*/
+/** 
+  * @brief  Determines whether rocket is nearing apogee.
+  * @param  accel       The current magnitude of the acceleration.
+  * @return Boolean
+  */
 static bool nearingApogee(int16_t *accel)
 {
     /* Add altitude or time backup? */
     return (*accel <= ACCEL_NEAR_APOGEE);
 }
 
-/*
-@brief  Determines whether rocket has passed apogee.
-@param  base_alt    The base altitude.
-@param  curr_pres   The current pressure.
-@param  height      The last recorded height.
-@return Boolean
-*/
+/** 
+  * @brief  Determines whether rocket has passed apogee.
+  * @param  base_alt    The base altitude.
+  * @param  curr_pres   The current pressure.
+  * @param  height      The last recorded height.
+  * @return Boolean
+  */
 static bool testApogee(int32_t *base_alt, int32_t *curr_pres, int32_t *height)
 {
     /* check that acceleration is 0 or positive downwards (acc >= 0 ) too? */
@@ -183,13 +185,13 @@ static bool testApogee(int32_t *base_alt, int32_t *curr_pres, int32_t *height)
     return (*height <= *prev_height);
 }
 
-/*
-@brief Verifies that rocket's height <= 3000 ft.
-@param  base_alt    The base altitude.
-@param  curr_pres   The current pressure.
-@param  height      The current height.
-@return Boolean
-*/
+/** 
+  * @brief  Verifies that rocket's height <= 3000 ft.
+  * @param  base_alt    The base altitude.
+  * @param  curr_pres   The current pressure.
+  * @param  height      The current height.
+  * @return Boolean
+  */
 static bool detectMainAlt(int32_t *base_alt, int32_t *curr_pres, int32_t *height)
 {
     calcHeight(curr_pres, base_alt, height);
@@ -199,13 +201,13 @@ static bool detectMainAlt(int32_t *base_alt, int32_t *curr_pres, int32_t *height
     return (height_in_ft <= 3000);
 }
 
-/*
-@brief  Detects landing by checking that altitude delta = 0.
-@param  base_alt    The base altitude.
-@param  curr_pres   The current pressure.
-@param  height      The last recorded height.
-@return Boolean
-*/
+/** 
+  * @brief  Detects landing by checking that altitude delta = 0.
+  * @param  base_alt    The base altitude.
+  * @param  curr_pres   The current pressure.
+  * @param  height      The last recorded height.
+  * @return Boolean
+  */
 static bool detectLanded(int32_t *base_alt, int32_t *curr_pres, int32_t *height)
 {
     *prev_height = *height
@@ -215,12 +217,12 @@ static bool detectLanded(int32_t *base_alt, int32_t *curr_pres, int32_t *height)
 }
 
 
-/* MAIN =============================================================================== */
+/* MAIN ===================================================================================================== */
 
-/**
- * @brief Apogee Detection board routine - hardware-independent implementation.
- * @return Status
- */
+/** 
+  * @brief Apogee Detection board routine - hardware-independent implementation.
+  * @return Status
+  */
 int main()
 {
     status_t retval;
