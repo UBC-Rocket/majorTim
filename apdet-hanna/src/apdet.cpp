@@ -132,7 +132,9 @@ static bool testStandby(int16_t *accel, int32_t *curr_pres, int32_t *curr_temp, 
 {
     barometerGetCompensatedValues(curr_pres, curr_temp);
     calcAlt(curr_pres, curr_alt);
-    /* TODO: check that acceleration is ≈ 0 AND base_alt is around what we expect */
+    bool standby_accel = (*accel == 0); /* TODO: error bound? */
+    bool standby_alt = (*curr_alt == LOCN_ALT); /* TODO: error bound? */
+    return (standby_alt && standby_accel);
 }
 
 /** 
