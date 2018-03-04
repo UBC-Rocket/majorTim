@@ -61,12 +61,7 @@ extern status_t i2cWrite(uint16_t address, uint8_t *data, uint16_t size)
   */
 extern status_t barometerReset(void)
 {
-    uint8_t cmd = BAROMETER_CMD_RESET;
-
-    if (i2cWrite(BAROMETER_ADDRESS, &cmd, 1) != STATUS_OK) {
-        return STATUS_ERROR;
-    }
-
+    //return STATUS_ERROR;
     return STATUS_OK;
 }
 
@@ -194,37 +189,8 @@ extern status_t barometerGetUncompensatedValues(uint32_t *d1, uint32_t *d2)
   */
 extern status_t barometerCompensateValues(uint32_t d1, uint32_t d2, int32_t *pressure, int32_t *temperature)
 {
-    int32_t dt, p, t;
-    int64_t off, sens;
-    int32_t t2 = 0;
-    int64_t off2 = 0;
-    int64_t sens2 = 0;
-
-    dt = d2 - (barometer_calibration[4] * pow(2,8));
-    t = (2000 + (dt * barometer_calibration[5]) / pow(2,23));
-    off = barometer_calibration[1] * pow(2,17) + (barometer_calibration[3] * dt) / pow(2,6);
-    sens = barometer_calibration[0] * pow(2,16) + (barometer_calibration[2] * dt) / pow(2,7);
-
-    if (t < 2000) {
-        t2 = (dt * dt) / pow(2,31);
-        off2 = (61 * (t - 2000) * (t - 2000)) / pow(2,4);
-        sens2 = 2 * (t - 2000) * (t - 2000);
-
-        if (t < -1500) {
-            off2 = off2 + 15 * (t + 1500) * (t + 1500);
-            sens2 = sens2 + 8 * (t + 1500) * (t + 1500);
-        }
-    }
-    t = t - t2;
-    off = off - off2;
-    sens = sens - sens2;
-
-    p = (((d1 * sens) / pow(2,21) - off) / pow(2,15));
-
-    /* convert to mbar */
-    *pressure = p / 100;
-    /* convert to *C */
-    *temperature = t / 100;
+    *pressure = 0;
+	*temperature = 0;
 
     return STATUS_OK;
 }
@@ -259,12 +225,7 @@ extern status_t barometerGetCompensatedPressure(int32_t *pressure)
     uint32_t d1, d2;
     int32_t t;
 
-    if (barometerGetUncompensatedValues(&d1, &d2) != STATUS_OK) {
-        return STATUS_ERROR;
-    }
-    if (barometerCompensateValues(d1, d2, pressure, &t) != STATUS_OK) {
-        return STATUS_ERROR;
-    }
+	fscanf(fbarometer, "%d", &pressure);
 
     return STATUS_OK;
 }
@@ -326,7 +287,9 @@ extern status_t accelerometerWriteRegister(uint8_t sub_address, uint8_t data)
   */
 extern status_t accelerometerInit(void)
 {
-    return STATUS_OK; //TODO: configure registers if needed
+	faccelerometer = fopen("accelerometer_data.txt", "wr+");
+
+    return STATUS_OK;
 }
 
 /**
@@ -338,15 +301,7 @@ extern status_t accelerometerInit(void)
   */
 extern status_t accelerometerGetData(int16_t *x, int16_t *y, int16_t *z)
 {
-    uint8_t buffer[6];
-
-    if (accelerometerReadRegister(ACCELEROMETER_REG_OUT_X_L, buffer, 6) != STATUS_OK) {
-        return STATUS_ERROR;
-    }
-
-    *x = (uint16_t)buffer[0] | ((uint16_t)buffer[1] << 8);
-    *y = (uint16_t)buffer[2] | ((uint16_t)buffer[3] << 8);
-    *z = (uint16_t)buffer[4] | ((uint16_t)buffer[5] << 8);
+    fscanf(faccelerometer, "%d %d %d", &x, &y, &z);
 
     return STATUS_OK;
 }
