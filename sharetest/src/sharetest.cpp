@@ -2,13 +2,13 @@
 
 #include "mbed.h"
 #include <sharetest.h>
-#include <MS5607I2C.h>
+#include <i2c_driver.h>
 
 DigitalOut led1(LED1);
 
 int main(void) 
 {
-    /*int32_t p = 0;
+    int32_t p = 0;
     int32_t t = 0;
     int16_t x = 0;
     int16_t y = 0;
@@ -33,15 +33,15 @@ int main(void)
         } else {
             printf("X: %" PRId16 "Y: %" PRId16 "Z: %" PRId16 "\r\n", x, y, z); 
         }
-    }*/
-
-    MS5607I2C ms5607(I2C_SDA, I2C_SCL, true);
-
-    while (true) {
-        printf("Pressure:    %.0f Pa\t",   ms5607.getPressure());
-        printf("Temperature: %.2f degC\t", ms5607.getTemperature());
-        printf("Altitude:    %.2f m\n",    ms5607.getAltitude());
     }
+
+    // MS5607I2C ms5607(I2C_SDA, I2C_SCL, true);
+
+    // while (true) {
+    //     printf("Pressure:    %.0f Pa\t",   ms5607.getPressure());
+    //     printf("Temperature: %.2f degC\t", ms5607.getTemperature());
+    //     printf("Altitude:    %.2f m\n",    ms5607.getAltitude());
+    // }
 
 
 

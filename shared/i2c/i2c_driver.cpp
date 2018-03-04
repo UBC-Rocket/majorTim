@@ -27,6 +27,7 @@ static uint16_t barometer_calibration[6];
 extern status_t i2cRead(uint16_t address, uint8_t *data, uint16_t size)
 {
     if (i2c.read((int)address, (char*)data, (int)size, false) != 0) {
+        printf("ERROR: i2cRead\n"); 
         return STATUS_ERROR;
     }
 
@@ -44,6 +45,7 @@ extern status_t i2cRead(uint16_t address, uint8_t *data, uint16_t size)
 extern status_t i2cWrite(uint16_t address, uint8_t *data, uint16_t size)
 {
     if (i2c.write((int)address, (char*)data, (int)size, false) != 0) {
+        printf("ERROR: i2cWrite\n"); 
         return STATUS_ERROR;
     }
 
@@ -61,7 +63,9 @@ extern status_t barometerReset(void)
 {
     uint8_t cmd = BAROMETER_CMD_RESET;
 
+    printf("in barometerReset\n"); 
     if (i2cWrite(BAROMETER_ADDRESS, &cmd, 1) != STATUS_OK) {
+        printf("ERROR: barometerReset\n"); 
         return STATUS_ERROR;
     }
 
@@ -79,12 +83,15 @@ extern status_t barometerGetCalibration(void)
     uint8_t cmd;
     uint8_t buffer[2];
 
+    printf("in barometerGetCalibration\n"); 
     for (int i = 0; i < 8; i++) {
         cmd = BAROMETER_CMD_PROM_READ | i * 2;
         if (i2cWrite(BAROMETER_ADDRESS, &cmd, 1) != STATUS_OK) {
+            printf("ERROR: barometerGetCalibration 1\n"); 
             return STATUS_ERROR;
         }
         if (i2cRead(BAROMETER_ADDRESS, buffer, 2) != STATUS_OK) {
+            printf("ERROR: barometerGetCalibration 2\n"); 
             return STATUS_ERROR;
         }
         barometer_calibration[i] = ((uint16_t)buffer[0] << 8) | (uint16_t)buffer[1];
@@ -100,6 +107,7 @@ extern status_t barometerGetCalibration(void)
   */
 extern status_t barometerInit(void)
 {
+    printf("in barometerInit\n"); 
     if (barometerReset() != STATUS_OK) {
         return STATUS_ERROR;
     }
@@ -121,7 +129,9 @@ extern status_t barometerGetData(uint8_t d, uint8_t osr, uint8_t *buffer)
 {
     uint8_t cmd = BAROMETER_CMD_ADC_CONV | d | osr;
 
+    printf("in barometerGetData\n"); 
     if (i2cWrite(BAROMETER_ADDRESS, &cmd, 1)  != STATUS_OK) {
+        printf("ERROR: barometerGetData 1\n"); 
         return STATUS_ERROR;
     }
     /* Delay as needed to allow ADC conversion to complete */
@@ -146,9 +156,11 @@ extern status_t barometerGetData(uint8_t d, uint8_t osr, uint8_t *buffer)
     }
     cmd = BAROMETER_CMD_ADC_READ;
     if (i2cWrite(BAROMETER_ADDRESS, &cmd, 1)  != STATUS_OK) {
+        printf("ERROR: barometerGetData 2\n"); 
         return STATUS_ERROR;
     }
     if (i2cRead(BAROMETER_ADDRESS, buffer, 3) != STATUS_OK) {
+        printf("ERROR: barometerGetData 3\n"); 
         return STATUS_ERROR;
     }
 
@@ -165,12 +177,15 @@ extern status_t barometerGetUncompensatedValues(uint32_t *d1, uint32_t *d2)
 {
     uint8_t buffer[3];
 
+    printf("in barometerGetUncompensatedValues\n"); 
     if (barometerGetData(BAROMETER_CMD_ADC_D2, BAROMETER_CMD_ADC_4096, buffer) != STATUS_OK) {
+        printf("ERROR: barometerGetUncompensatedValues 1\n"); 
         return STATUS_ERROR;
     }
     *d1 = ((uint32_t)buffer[0] << 16) | ((uint32_t)buffer[1] << 8) | (uint32_t)buffer[2];
 
     if (barometerGetData(BAROMETER_CMD_ADC_D2, BAROMETER_CMD_ADC_4096, buffer) != STATUS_OK) {
+        printf("ERROR: barometerGetUncompensatedValues 2\n"); 
         return STATUS_ERROR;
     }
     *d2 = ((uint32_t)buffer[0] << 16) | ((uint32_t)buffer[1] << 8) | (uint32_t)buffer[2];
@@ -194,6 +209,8 @@ extern status_t barometerCompensateValues(uint32_t d1, uint32_t d2, int32_t *pre
     int32_t t2 = 0;
     int64_t off2 = 0;
     int64_t sens2 = 0;
+
+    printf("in barometerCompensateValues\n"); 
 
     dt = d2 - (barometer_calibration[4] * pow(2,8));
     t = (2000 + (dt * barometer_calibration[5]) / pow(2,23));
@@ -234,10 +251,13 @@ extern status_t barometerGetCompensatedValues(int32_t *pressure, int32_t *temper
 {
     uint32_t d1, d2;
 
+    printf("in barometerGetCompensatedValues\n"); 
     if (barometerGetUncompensatedValues(&d1, &d2) != STATUS_OK) {
+        printf("ERROR: barometerGetCompensatedValues 1\n"); 
         return STATUS_ERROR;
     }
     if (barometerCompensateValues(d1, d2, pressure, temperature) != STATUS_OK) {
+        printf("ERROR: barometerGetCompensatedValues 1\n"); 
         return STATUS_ERROR;
     }
 
