@@ -10,12 +10,12 @@ Hardware-independent functions.
 #define SIM_LAUNCH_ACCEL               40  /* 40 is old value, ask Ollie assuming sims are accurat */
                                            /* should be accel of least accelerating rocket */
 #define SIM_BURNOUT_ACCEL_DELTA         4  /* 4s till burnout (data is pretty trash during powered ascent) */
-#define ACCEL_NEAR_APOGEE		     0.15  /* accel <= 0.15g indicates we are close to apogee */
+#define ACCEL_NEAR_APOGEE            0.15  /* accel <= 0.15g indicates we are close to apogee */
 
 #define NUM_CHECKS                      5  /* each condition has to pass 5 times */
 #define NUM_WRITE_ATTEMPTS              5  /* 5 is temp value, tbd from testing */
 
-#define LOCN_ALT                        0  /* TODO */
+#define LOCN_ALT                      785  /* altitude of Hanna, Alberta */
 
 #define P_0                       1013.25  /* pressure at 0 altitude (mb) */
 #define T_0                        288.15  /* temperature at 0 altitude (K) */
