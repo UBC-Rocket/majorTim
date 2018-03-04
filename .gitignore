@@ -79,3 +79,4 @@ shared/mbed/BUILD-*/*
 */mbed-os
 */mbed_config.h
 */mbed_settings.py
+*.pyc
