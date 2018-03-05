@@ -102,7 +102,6 @@ extern status_t barometerGetCalibration(void)
   */
 extern status_t barometerInit(void)
 {
-    printf("in barometerInit\n"); 
     if (barometerReset() != STATUS_OK) {
         return STATUS_ERROR;
     }
