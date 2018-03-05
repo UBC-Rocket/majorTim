@@ -7,8 +7,8 @@
 #include "general.h"
 
 /* Constants -------------------------------------------------- */
-#define BAROMETER_ADDRESS       0x76
-#define ACCELEROMETER_ADDRESS   0x18
+#define BAROMETER_ADDRESS       0xEC
+#define ACCELEROMETER_ADDRESS   0x30
 
 #define BAROMETER_CMD_RESET     0x1E
 #define BAROMETER_CMD_PROM_READ 0xA0

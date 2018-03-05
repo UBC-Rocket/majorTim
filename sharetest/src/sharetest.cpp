@@ -3,6 +3,7 @@
 #include "mbed.h"
 #include <sharetest.h>
 #include <i2c_driver.h>
+#include <MS5607I2C.h>
 
 DigitalOut led1(LED1);
 
@@ -25,7 +26,7 @@ int main(void)
         if (barometerGetCompensatedValues(&p, &t) != STATUS_OK) {
             printf("ERROR: barometer get compensated values failed :(\r\n");
         } else {
-            printf("Pressure: %" PRIu32 " Temperature: %" PRIu32 "\r\n", p, t); 
+            printf("Pressure: %" PRId32 " Temperature: %" PRId32 "\r\n", p, t); 
         }
 
         if (accelerometerGetData(&x, &y, &z) != STATUS_OK) {
@@ -42,7 +43,4 @@ int main(void)
     //     printf("Temperature: %.2f degC\t", ms5607.getTemperature());
     //     printf("Altitude:    %.2f m\n",    ms5607.getAltitude());
     // }
-
-
-
 }
