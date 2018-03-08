@@ -189,7 +189,7 @@ extern status_t barometerGetUncompensatedValues(uint32_t *d1, uint32_t *d2)
   * @param  temperature A pointer to store compensated temperature value
   * @retval Status
   */
-extern status_t barometerCompensateValues(uint32_t d1, uint32_t d2, int32_t *pressure, int32_t *temperature)
+extern status_t barometerCompensateValues(uint32_t d1, uint32_t d2, float *pressure, float *temperature)
 {
     int32_t dt, p, t;
     int64_t off, sens;
@@ -219,9 +219,9 @@ extern status_t barometerCompensateValues(uint32_t d1, uint32_t d2, int32_t *pre
 
     p = ((((int64_t)d1 * sens >> 21) - off) >> 15);
 
-    /*TODO: convert to mbar and C*/
-    *pressure = p;
-    *temperature = t;
+    /*convert to mbar and degC*/
+    *pressure = (float)p / 100;
+    *temperature = (float)t / 100;
 
     return STATUS_OK;
 }
@@ -232,7 +232,7 @@ extern status_t barometerCompensateValues(uint32_t d1, uint32_t d2, int32_t *pre
   * @param  temperature A pointer to store compensated temperature value
   * @retval Status
   */
-extern status_t barometerGetCompensatedValues(int32_t *pressure, int32_t *temperature)
+extern status_t barometerGetCompensatedValues(float *pressure, float *temperature)
 {
     uint32_t d1, d2;
 
@@ -251,10 +251,10 @@ extern status_t barometerGetCompensatedValues(int32_t *pressure, int32_t *temper
   * @param  pressure A pointer to store compensated pressure value
   * @retval Status
   */
-extern status_t barometerGetCompensatedPressure(int32_t *pressure)
+extern status_t barometerGetCompensatedPressure(float *pressure)
 {
     uint32_t d1, d2;
-    int32_t t;
+    float t;
 
     if (barometerGetUncompensatedValues(&d1, &d2) != STATUS_OK) {
         return STATUS_ERROR;
@@ -323,7 +323,14 @@ extern status_t accelerometerWriteRegister(uint8_t sub_address, uint8_t data)
   */
 extern status_t accelerometerInit(void)
 {
-    return STATUS_OK; //TODO: configure registers if needed
+    if (accelerometerWriteRegister(ACCELEROMETER_REG_CTRL_REG1, 0x27) != STATUS_OK) {
+        return STATUS_ERROR;
+    }
+    if (accelerometerWriteRegister(ACCELEROMETER_REG_CTRL_REG4, 0xB0) != STATUS_OK) {
+        return STATUS_ERROR;
+    }
+
+    return STATUS_OK;
 }
 
 /**
@@ -336,14 +343,20 @@ extern status_t accelerometerInit(void)
 extern status_t accelerometerGetData(int16_t *x, int16_t *y, int16_t *z)
 {
     uint8_t buffer[6];
+    int16_t tempx, tempy, tempz;
 
     if (accelerometerReadRegister(ACCELEROMETER_REG_OUT_X_L, buffer, 6) != STATUS_OK) {
         return STATUS_ERROR;
     }
 
-    *x = (uint16_t)buffer[0] | ((uint16_t)buffer[1] << 8);
-    *y = (uint16_t)buffer[2] | ((uint16_t)buffer[3] << 8);
-    *z = (uint16_t)buffer[4] | ((uint16_t)buffer[5] << 8);
+    tempx = ((uint16_t)buffer[1] << 8) | (uint16_t)buffer[0];
+    tempy = ((uint16_t)buffer[3] << 8) | (uint16_t)buffer[2];
+    tempz = ((uint16_t)buffer[5] << 8) | (uint16_t)buffer[4];
+
+    /*convert to mg (data is 12 bits left justified two's complement with 12mg/digit at +-24g)*/
+    *x = (tempx / 16) * 12;
+    *y = (tempy / 16) * 12;
+    *z = (tempz / 16) * 12;
 
     return STATUS_OK;
 }
