@@ -360,3 +360,4 @@ extern status_t accelerometerGetData(int16_t *x, int16_t *y, int16_t *z)
 
     return STATUS_OK;
 }
+
