@@ -13,11 +13,14 @@ Hardware-independent functions.
                                            /* should be accel of least accelerating rocket */
 #define SIM_BURNOUT_ACCEL_DELTA         4  /* 4s till burnout (data is pretty trash during powered ascent) */
 #define ACCEL_NEAR_APOGEE            0.15  /* accel <= 0.15g indicates we are close to apogee */
+#define MAIN_DEPLOY_HEIGHT           1500  /* height at which we deploy main (ft) */
+#define MIN_APOGEE_DEPLOY              65  /* height above which we want to deploy drogue, payload and main (in ft) */
 
 #define NUM_CHECKS                      5  /* each condition has to pass 5 times */
 #define NUM_WRITE_ATTEMPTS              5  /* 5 is temp value, tbd from testing */
 
 #define LOCN_ALT                      785  /* altitude of Hanna, Alberta */
+#define EPSILON                     0.005  /* */
 
 #define P_0                       1013.25  /* pressure at 0 altitude (mb) */
 #define T_0                        288.15  /* temperature at 0 altitude (K) */
@@ -130,12 +133,14 @@ TODO LIST
   * @param  curr_alt    The current altitude (if in standby, this will be the base altitude).
   * @return Boolean
   */
+
+/*use waiting*/
 static bool testStandby(int16_t *accel, float *curr_pres, float *curr_temp, float *curr_alt)
 {
     barometerGetCompensatedValues(curr_pres, curr_temp);
-    calcAlt(curr_pres, curr_alt);
-    bool standby_accel = (*accel == 0); /* TODO: error bound? */
-    bool standby_alt = (*curr_alt == LOCN_ALT); /* TODO: error bound? */
+    calcAlt(curr_pres, curr_alt); 
+    bool standby_accel = (fabs(*accel - g) <= EPSILON);
+    bool standby_alt = (fabs(*curr_alt - LOCN_ALT) < MIN_APOGEE_DEPLOY); /* In case we launch on a hill */
     return (standby_alt && standby_accel);
 }
 
@@ -157,7 +162,7 @@ static bool detectLaunch(int16_t *accel)
 static bool detectBurnout(int16_t *accel)
 {
     /* Involve time to double check / as a backup? Check reasonable altitude?
-    Data may not be stable at this point */
+    Barometer data may not be stable at this point */
     return (*accel <= 0);
 }
 
@@ -186,7 +191,7 @@ static bool testApogee(float *base_alt, float *curr_pres, float *height)
     float prev_height = *height;
     calcHeight(curr_pres, base_alt, height);
 
-    return (*height <= prev_height);
+    return (fabs(*height - prev_height) <= EPSILON);
 }
 
 /** 
@@ -202,7 +207,7 @@ static bool detectMainAlt(float *base_alt, float *curr_pres, float *height)
     float height_in_ft;
     convertToFeet(&height_in_ft, height);
 
-    return (height_in_ft <= 3000);
+    return (height_in_ft <= MAIN_DEPLOY_HEIGHT);
 }
 
 /** 
@@ -214,10 +219,10 @@ static bool detectMainAlt(float *base_alt, float *curr_pres, float *height)
   */
 static bool detectLanded(float *base_alt, float *curr_pres, float *height)
 {
-    float prev_height = *height;
+    float prev_height = *height; //threshold floats, you'll never get equality, too precise
     calcHeight(curr_pres, base_alt, height);
 
-    return (*height == prev_height);
+    return (fabs(*height - prev_height) <= EPSILON);
 }
 
 
@@ -251,7 +256,6 @@ int main()
     float land_det_height = 0;
     
     /* don't mind resetting these */
-    //int test_count = NUM_CHECKS;
     int launch_count = NUM_CHECKS;
     int burnout_count = NUM_CHECKS;
     int coasting_count = NUM_CHECKS;
@@ -279,7 +283,6 @@ int main()
                     }
                     if (testStandby(&accel, &base_pres, &base_temp, &base_alt)) {
                     /* TODO: Update/store base_pres, temp and alt in flash */
-                        //printf("Still in standby.");
                     } else {
                     /* TODO: Get them from flash memory (assume we already set them earlier) */
                         //printf("Retrieveing state and variables from flash memory.");
@@ -303,7 +306,6 @@ int main()
                         launch_count--;
                         if (launch_count <= 0) {
                             curr_state = APDET_STATE_POWERED_ASCENT;
-                            //printf("Powered ascent.");
                         /* TODO: Save state to flash memory */
                         /* TODO: Write state to SD card using SPI */
                         }
@@ -329,7 +331,6 @@ int main()
                         burnout_count--;
                         if (burnout_count <= 0) {
                             curr_state = APDET_STATE_COASTING;
-                            //printf("Coasting.");
                         /* TODO: Save state to flash memory */
                         /* TODO: Write state to SD card using SPI */
                         }
@@ -355,7 +356,6 @@ int main()
                         coasting_count--;
                         if (coasting_count <= 0) {
                             curr_state = APDET_STATE_APOGEE_TESTING;
-                            //printf("Testing apogee.");
                             /* TODO: Save state to flash memory */
                             /* TODO: Write state to SD card using SPI */
                         }
@@ -376,7 +376,6 @@ int main()
                         apogee_count--;
                         if (apogee_count <= 0) {
                             curr_state = APDET_STATE_DEPLOY_DROGUE;
-                            //printf("Deploying drogue.");
                             /* TODO: Save state to flash memory */
                             /* TODO: Write state to SD card using SPI */
                         }
@@ -391,7 +390,6 @@ int main()
                     deployDrogue();
                     wait_ms(3000);
                     curr_state = APDET_STATE_DEPLOY_PAYLOAD;
-                    //printf("Deploying payload.");
                     /* TODO: Save state to flash memory */
                     /* TODO: Write state to SD card using SPI */
                     break;
@@ -401,7 +399,7 @@ int main()
                 {
                     deployPayload();
                     curr_state = APDET_STATE_INITIAL_DESCENT;
-                    //printf("Initial descent.");
+                    wait_ms(5000);
                     /* TODO: Save state to flash memory */
                     /* TODO: Write state to SD card using SPI */
                     break;
@@ -419,7 +417,6 @@ int main()
                         main_count--;
                         if (main_count <= 0) {
                             curr_state = APDET_STATE_DEPLOY_MAIN;
-                            //printf("Deploying main.");
                             /* TODO: Save state to flash memory */
                             /* TODO: Write state to SD card using SPI */
                         }
@@ -433,7 +430,6 @@ int main()
                 {
                     deployMain();
                     curr_state = APDET_STATE_FINAL_DESCENT;
-                    //printf("Final descent.");
                     /* TODO: Save state to flash memory */
                     /* TODO: Write state to SD card using SPI */
                     break;
@@ -450,7 +446,6 @@ int main()
                         land_count--;
                         if (land_count <= 0) {
                             curr_state = APDET_STATE_LANDED;
-                            //printf("Landed.");
                             /* TODO: Save state to flash memory */
                             /* TODO: Write state to SD card using SPI */
                         }
