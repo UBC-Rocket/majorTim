@@ -9,7 +9,7 @@
 #include <general.h>
 
 /* Objects -------------------------------------------------- */
-I2C i2c(PB_9, PB_8);
+I2C i2c(I2C_SDA, I2C_SCL);
 
 /* Variables -------------------------------------------------- */
 static uint16_t barometer_calibration[6];
@@ -64,6 +64,8 @@ extern status_t barometerReset(void)
     if (i2cWrite(BAROMETER_ADDRESS, &cmd, 1) != STATUS_OK) {
         return STATUS_ERROR;
     }
+    /*need to wait for reset sequence to complete*/
+    wait_ms(3);
 
     return STATUS_OK;
 }
@@ -79,8 +81,8 @@ extern status_t barometerGetCalibration(void)
     uint8_t cmd;
     uint8_t buffer[2];
 
-    for (int i = 0; i < 8; i++) {
-        cmd = BAROMETER_CMD_PROM_READ | i * 2;
+    for (int i = 0; i < 6; i++) {
+        cmd = BAROMETER_CMD_PROM_READ | (i+1) * 2;
         if (i2cWrite(BAROMETER_ADDRESS, &cmd, 1) != STATUS_OK) {
             return STATUS_ERROR;
         }
@@ -165,7 +167,7 @@ extern status_t barometerGetUncompensatedValues(uint32_t *d1, uint32_t *d2)
 {
     uint8_t buffer[3];
 
-    if (barometerGetData(BAROMETER_CMD_ADC_D2, BAROMETER_CMD_ADC_4096, buffer) != STATUS_OK) {
+    if (barometerGetData(BAROMETER_CMD_ADC_D1, BAROMETER_CMD_ADC_4096, buffer) != STATUS_OK) {
         return STATUS_ERROR;
     }
     *d1 = ((uint32_t)buffer[0] << 16) | ((uint32_t)buffer[1] << 8) | (uint32_t)buffer[2];
@@ -187,7 +189,7 @@ extern status_t barometerGetUncompensatedValues(uint32_t *d1, uint32_t *d2)
   * @param  temperature A pointer to store compensated temperature value
   * @retval Status
   */
-extern status_t barometerCompensateValues(uint32_t d1, uint32_t d2, int32_t *pressure, int32_t *temperature)
+extern status_t barometerCompensateValues(uint32_t d1, uint32_t d2, float *pressure, float *temperature)
 {
     int32_t dt, p, t;
     int64_t off, sens;
@@ -195,31 +197,31 @@ extern status_t barometerCompensateValues(uint32_t d1, uint32_t d2, int32_t *pre
     int64_t off2 = 0;
     int64_t sens2 = 0;
 
-    dt = d2 - (barometer_calibration[4] * pow(2,8));
-    t = (2000 + (dt * barometer_calibration[5]) / pow(2,23));
-    off = barometer_calibration[1] * pow(2,17) + (barometer_calibration[3] * dt) / pow(2,6);
-    sens = barometer_calibration[0] * pow(2,16) + (barometer_calibration[2] * dt) / pow(2,7);
+    dt = d2 - ((int32_t)barometer_calibration[4] << 8);
+    t = 2000 + ((dt * (int32_t)barometer_calibration[5]) >> 23);
+    off = ((int64_t)barometer_calibration[1] << 17) + ((int64_t)barometer_calibration[3] * dt >> 6);
+    sens = ((int64_t)barometer_calibration[0] << 16) + ((int64_t)barometer_calibration[2] * dt >> 7);
 
     if (t < 2000) {
-        t2 = (dt * dt) / pow(2,31);
-        off2 = (61 * (t - 2000) * (t - 2000)) / pow(2,4);
-        sens2 = 2 * (t - 2000) * (t - 2000);
+        t2 = (int64_t)dt * dt >> 31;
+        off2 = (int64_t)61 * (t - 2000) * (t - 2000) >> 4;
+        sens2 = (int64_t)2 * (t - 2000) * (t - 2000);
 
         if (t < -1500) {
-            off2 = off2 + 15 * (t + 1500) * (t + 1500);
-            sens2 = sens2 + 8 * (t + 1500) * (t + 1500);
+            off2 += (int64_t)15 * (t + 1500) * (t + 1500);
+            sens2 += (int64_t)8 * (t + 1500) * (t + 1500);
         }
     }
-    t = t - t2;
-    off = off - off2;
-    sens = sens - sens2;
+    
+    t -= t2;
+    off -= off2;
+    sens -= sens2;
 
-    p = (((d1 * sens) / pow(2,21) - off) / pow(2,15));
+    p = ((((int64_t)d1 * sens >> 21) - off) >> 15);
 
-    /* convert to mbar */
-    *pressure = p / 100;
-    /* convert to *C */
-    *temperature = t / 100;
+    /*convert to mbar and degC*/
+    *pressure = (float)p / 100;
+    *temperature = (float)t / 100;
 
     return STATUS_OK;
 }
@@ -230,7 +232,7 @@ extern status_t barometerCompensateValues(uint32_t d1, uint32_t d2, int32_t *pre
   * @param  temperature A pointer to store compensated temperature value
   * @retval Status
   */
-extern status_t barometerGetCompensatedValues(int32_t *pressure, int32_t *temperature)
+extern status_t barometerGetCompensatedValues(float *pressure, float *temperature)
 {
     uint32_t d1, d2;
 
@@ -249,10 +251,10 @@ extern status_t barometerGetCompensatedValues(int32_t *pressure, int32_t *temper
   * @param  pressure A pointer to store compensated pressure value
   * @retval Status
   */
-extern status_t barometerGetCompensatedPressure(int32_t *pressure)
+extern status_t barometerGetCompensatedPressure(float *pressure)
 {
     uint32_t d1, d2;
-    int32_t t;
+    float t;
 
     if (barometerGetUncompensatedValues(&d1, &d2) != STATUS_OK) {
         return STATUS_ERROR;
@@ -321,7 +323,14 @@ extern status_t accelerometerWriteRegister(uint8_t sub_address, uint8_t data)
   */
 extern status_t accelerometerInit(void)
 {
-    return STATUS_OK; //TODO: configure registers if needed
+    if (accelerometerWriteRegister(ACCELEROMETER_REG_CTRL_REG1, 0x27) != STATUS_OK) {
+        return STATUS_ERROR;
+    }
+    if (accelerometerWriteRegister(ACCELEROMETER_REG_CTRL_REG4, 0xB0) != STATUS_OK) {
+        return STATUS_ERROR;
+    }
+
+    return STATUS_OK;
 }
 
 /**
@@ -334,14 +343,20 @@ extern status_t accelerometerInit(void)
 extern status_t accelerometerGetData(int16_t *x, int16_t *y, int16_t *z)
 {
     uint8_t buffer[6];
+    int16_t tempx, tempy, tempz;
 
     if (accelerometerReadRegister(ACCELEROMETER_REG_OUT_X_L, buffer, 6) != STATUS_OK) {
         return STATUS_ERROR;
     }
 
-    *x = (uint16_t)buffer[0] | ((uint16_t)buffer[1] << 8);
-    *y = (uint16_t)buffer[2] | ((uint16_t)buffer[3] << 8);
-    *z = (uint16_t)buffer[4] | ((uint16_t)buffer[5] << 8);
+    tempx = ((uint16_t)buffer[1] << 8) | (uint16_t)buffer[0];
+    tempy = ((uint16_t)buffer[3] << 8) | (uint16_t)buffer[2];
+    tempz = ((uint16_t)buffer[5] << 8) | (uint16_t)buffer[4];
+
+    /*convert to mg (data is 12 bits left justified two's complement with 12mg/digit at +-24g)*/
+    *x = (tempx / 16) * 12;
+    *y = (tempy / 16) * 12;
+    *z = (tempz / 16) * 12;
 
     return STATUS_OK;
 }
