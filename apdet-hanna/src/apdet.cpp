@@ -260,8 +260,10 @@ int main()
     int land_count = NUM_CHECKS;
 
     state_t curr_state = APDET_STATE_TESTING; /* write to and read from flash memory */
+    printf("Testing state.");
 
     while (1) {
+        printf("curr_state = %d\n", curr_state);
         switch(curr_state) {
             case APDET_STATE_TESTING:
                 {
@@ -277,10 +279,10 @@ int main()
                     }
                     if (testStandby(&accel, &base_pres, &base_temp, &base_alt)) {
                     /* TODO: Update/store base_pres, temp and alt in flash */
-                        printf("Still in standby.");
+                        //printf("Still in standby.");
                     } else {
                     /* TODO: Get them from flash memory (assume we already set them earlier) */
-                        printf("Retrieveing state and variables from flash memory.");
+                        //printf("Retrieveing state and variables from flash memory.");
                     }
                     break;
                 }
@@ -301,7 +303,7 @@ int main()
                         launch_count--;
                         if (launch_count <= 0) {
                             curr_state = APDET_STATE_POWERED_ASCENT;
-                            printf("Powered ascent.");
+                            //printf("Powered ascent.");
                         /* TODO: Save state to flash memory */
                         /* TODO: Write state to SD card using SPI */
                         }
@@ -327,7 +329,7 @@ int main()
                         burnout_count--;
                         if (burnout_count <= 0) {
                             curr_state = APDET_STATE_COASTING;
-                            printf("Coasting.");
+                            //printf("Coasting.");
                         /* TODO: Save state to flash memory */
                         /* TODO: Write state to SD card using SPI */
                         }
@@ -353,7 +355,7 @@ int main()
                         coasting_count--;
                         if (coasting_count <= 0) {
                             curr_state = APDET_STATE_APOGEE_TESTING;
-                            printf("Testing apogee.");
+                            //printf("Testing apogee.");
                             /* TODO: Save state to flash memory */
                             /* TODO: Write state to SD card using SPI */
                         }
@@ -374,7 +376,7 @@ int main()
                         apogee_count--;
                         if (apogee_count <= 0) {
                             curr_state = APDET_STATE_DEPLOY_DROGUE;
-                            printf("Deploying drogue.");
+                            //printf("Deploying drogue.");
                             /* TODO: Save state to flash memory */
                             /* TODO: Write state to SD card using SPI */
                         }
@@ -389,7 +391,7 @@ int main()
                     deployDrogue();
                     wait_ms(3000);
                     curr_state = APDET_STATE_DEPLOY_PAYLOAD;
-                    printf("Deploying payload.");
+                    //printf("Deploying payload.");
                     /* TODO: Save state to flash memory */
                     /* TODO: Write state to SD card using SPI */
                     break;
@@ -399,7 +401,7 @@ int main()
                 {
                     deployPayload();
                     curr_state = APDET_STATE_INITIAL_DESCENT;
-                    printf("Initial descent.");
+                    //printf("Initial descent.");
                     /* TODO: Save state to flash memory */
                     /* TODO: Write state to SD card using SPI */
                     break;
@@ -417,7 +419,7 @@ int main()
                         main_count--;
                         if (main_count <= 0) {
                             curr_state = APDET_STATE_DEPLOY_MAIN;
-                            printf("Deploying main.");
+                            //printf("Deploying main.");
                             /* TODO: Save state to flash memory */
                             /* TODO: Write state to SD card using SPI */
                         }
@@ -431,7 +433,7 @@ int main()
                 {
                     deployMain();
                     curr_state = APDET_STATE_FINAL_DESCENT;
-                    printf("Final descent.");
+                    //printf("Final descent.");
                     /* TODO: Save state to flash memory */
                     /* TODO: Write state to SD card using SPI */
                     break;
@@ -448,7 +450,7 @@ int main()
                         land_count--;
                         if (land_count <= 0) {
                             curr_state = APDET_STATE_LANDED;
-                            printf("Landed.");
+                            //printf("Landed.");
                             /* TODO: Save state to flash memory */
                             /* TODO: Write state to SD card using SPI */
                         }
