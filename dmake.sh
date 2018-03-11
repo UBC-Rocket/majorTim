@@ -27,4 +27,4 @@ fi
 
 USER_ID=`id -u`
 GROUP_ID=`id -g`
-docker run -it --volume `pwd`:/home/rkt/build --user=$USER_ID:$GROUP_ID ubcrocket/majortim-build /bin/sh -c "cd $1 && ./build.sh"
+docker run -it --volume "`pwd`":/home/rkt/build --user=$USER_ID:$GROUP_ID ubcrocket/majortim-build /bin/sh -c "cd $1 && ./build.sh"

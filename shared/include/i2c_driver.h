@@ -7,8 +7,8 @@
 #include "general.h"
 
 /* Constants -------------------------------------------------- */
-#define BAROMETER_ADDRESS       0x76
-#define ACCELEROMETER_ADDRESS   0x18
+#define BAROMETER_ADDRESS       0xEC
+#define ACCELEROMETER_ADDRESS   0x30
 
 #define BAROMETER_CMD_RESET     0x1E
 #define BAROMETER_CMD_PROM_READ 0xA0
@@ -54,9 +54,9 @@ extern status_t barometerGetCalibration(void);
 extern status_t barometerInit(void);
 extern status_t barometerGetData(uint8_t d, uint8_t osr, uint8_t *buffer);
 extern status_t barometerGetUncompensatedValues(uint32_t *d1, uint32_t *d2);
-extern status_t barometerCompensateValues(uint32_t d1, uint32_t d2, int32_t *pressure, int32_t *temperature);
-extern status_t barometerGetCompensatedValues(int32_t *pressure, int32_t *temperature);
-extern status_t barometerGetCompensatedPressure(int32_t *pressure);
+extern status_t barometerCompensateValues(uint32_t d1, uint32_t d2, float *pressure, float *temperature);
+extern status_t barometerGetCompensatedValues(float *pressure, float *temperature);
+extern status_t barometerGetCompensatedPressure(float *pressure);
 extern status_t accelerometerReadRegister(uint8_t sub_address, uint8_t *buffer, uint16_t size);
 extern status_t accelerometerWriteRegister(uint8_t sub_address, uint8_t data);
 extern status_t accelerometerInit(void);
