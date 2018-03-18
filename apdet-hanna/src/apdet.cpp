@@ -9,7 +9,7 @@ Hardware-independent functions.
 
 /* CONSTANTS ================================================================================================ */
 
-#define SIM_LAUNCH_ACCEL               40  /* 40 is old value, ask Ollie assuming sims are accurat */
+#define SIM_LAUNCH_ACCEL               40  /* 40 is old value, ask Ollie assuming sims are accurate */
                                            /* should be accel of least accelerating rocket */
 #define SIM_BURNOUT_ACCEL_DELTA         4  /* 4s till burnout (data is pretty trash during powered ascent) */
 #define ACCEL_NEAR_APOGEE            0.15  /* accel <= 0.15g indicates we are close to apogee */
@@ -28,6 +28,8 @@ Hardware-independent functions.
 #define R                         287.053  /* gas constant for air (J/(kg K))*/
 #define g                         9.80665  /* gravitational acceleration (m/s^2) */
 
+//TODO: define memory constants for flash stuff
+
 /* DRIVERS ================================================================================================== */
 
 /**
@@ -37,6 +39,7 @@ Hardware-independent functions.
 extern status_t deployDrogue()
 {
     /* TODO */
+    printf("Drogue deployed.\n");
     return STATUS_OK;
 }
 
@@ -47,6 +50,7 @@ extern status_t deployDrogue()
 extern status_t deployPayload()
 {
     /* TODO */
+    printf("Payload deployed.\n");
     return STATUS_OK;
 }
 
@@ -56,6 +60,7 @@ extern status_t deployPayload()
   */
 extern status_t deployMain()
 {
+    printf("Main deployed.\n");
     /* TODO */
     return STATUS_OK;
 }
@@ -120,9 +125,9 @@ TODO LIST
     - height in m vs ft
     - accel in m/s^2 vs g
 - Stop getting data from barometer and accelerometer at certain points:
-    - payload deployment
+    - payload deployment done
     - sonic boom?
-- Incorporate data filtering?
+- Incorporate Kalman data filtering?
 */
 
 /**
@@ -244,6 +249,13 @@ int main()
         retval = accelerometerInit();
     } while (retval != STATUS_OK);
 
+    SDBlockDevice sd(SPI_MOSI, SPI_MISO, SPI_SCK, SPI_CS);
+
+    }
+    do {
+        retval = sd.init();
+    } while (retval != 0);
+
     /* RECOVER IN CASE OF BLACKOUT */
     float base_pres;
     float base_temp;
@@ -264,10 +276,10 @@ int main()
     int land_count = NUM_CHECKS;
 
     state_t curr_state = APDET_STATE_TESTING; /* write to and read from flash memory */
-    printf("Testing state.");
+    //printf("Testing state.");
 
     while (1) {
-        printf("curr_state = %d\n", curr_state);
+        //printf("curr_state = %d\n", curr_state);
         switch(curr_state) {
             case APDET_STATE_TESTING:
                 {
