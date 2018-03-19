@@ -165,11 +165,10 @@ TODO LIST
   * @param  curr_alt    The current altitude (if in standby, this will be the base altitude).
   * @return Boolean
   */
-
-/*use waiting*/
 static bool testStandby(int16_t *accel, float *curr_pres, float *curr_temp, float *curr_alt)
 {
     barometerGetCompensatedValues(curr_pres, curr_temp);
+    /* TODO: log */
     calcAlt(curr_pres, curr_alt); 
     bool standby_accel = (fabs(*accel - g) <= EPSILON);
     bool standby_alt = (fabs(*curr_alt - LOCN_ALT) < MIN_APOGEE_DEPLOY); /* In case we launch on a hill */
