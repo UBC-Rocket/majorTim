@@ -5,14 +5,16 @@ Hardware-independent functions.
 #include <i2c_driver.h>
 #include <general.h>
 #include <math.h>
+#include "SDBlockDevice.h"
+#include "FATFileSystem.h"
 
 
 /* CONSTANTS ================================================================================================ */
 
-#define SIM_LAUNCH_ACCEL               40  /* 40 is old value, ask Ollie assuming sims are accurate, units? */
+#define SIM_LAUNCH_ACCEL             1200  /* Assume we've launched when we detect accel >= 1200 millig */
                                            /* should be accel of least accelerating rocket */
-#define SIM_BURNOUT_ACCEL_DELTA         4  /* 4s till burnout (data is pretty trash during powered ascent) */
-#define ACCEL_NEAR_APOGEE            0.15  /* accel magnitude <= 0.15g indicates we are close to apogee */
+//#define SIM_BURNOUT_ACCEL_DELTA         4  /* 4s till burnout (data is pretty trash during powered ascent) */
+#define ACCEL_NEAR_APOGEE             150  /* accel magnitude <= 150 millig indicates we are close to apogee */
 #define MAIN_DEPLOY_HEIGHT           1500  /* height at which we deploy main (ft) */
 #define MIN_APOGEE_DEPLOY              65  /* height above which we want to deploy drogue, payload and main (in ft) */
 
@@ -28,7 +30,12 @@ Hardware-independent functions.
 #define R                         287.053  /* gas constant for air (J/(kg K))*/
 #define g                         9.80665  /* gravitational acceleration (m/s^2) */
 
-//TODO: define memory constants for flash stuff
+//TODO: define memory constants for SD
+static const char* sdSensorDataPath = "/sd/sensorData.bin";
+static const char* sdBaseVarsPath = "/sd/baseVars.bin";
+static const char* sdStatesPath = "/sd/states.bin";
+static const char* sdMountPt = "sd";
+FATFileSystem fs(sdMountPt, &sd);
 
 /* DRIVERS ================================================================================================== */
 
@@ -60,8 +67,8 @@ extern status_t deployPayload()
   */
 extern status_t deployMain()
 {
-    printf("Main deployed.\n");
     /* TODO */
+    printf("Main deployed.\n");
     return STATUS_OK;
 }
 
@@ -73,11 +80,9 @@ extern status_t deployMain()
   * @param  alt         A pointer to store the current altitude IN METERS.
   * @return Status
   */
-extern status_t calcAlt(float *curr_pres, float *alt)
+extern void calcAlt(float *curr_pres, float *alt)
 {
     *alt = (T_0/L) * (pow((*curr_pres/P_0),(-L*R/g)) - 1);
-
-    return STATUS_OK;
 }
 
 /**
@@ -87,19 +92,16 @@ extern status_t calcAlt(float *curr_pres, float *alt)
   * @param  height      A pointer to store the current height IN METERS.
   * @return Status
   */
-extern status_t calcHeight(float *curr_pres, float *base_alt, float *height)
+extern void calcHeight(float *curr_pres, float *base_alt, float *height)
 {
     float curr_alt;
     calcAlt(curr_pres, &curr_alt);
     *height = curr_alt - *base_alt;
-
-    return STATUS_OK;
 }
 
-extern status_t convertToFeet(float *height_in_ft, float *height_in_m)
+extern void convertToFeet(float *height_in_ft, float *height_in_m)
 {
 	*height_in_ft = (*height_in_m) * 3.28084;
-	return STATUS_OK;
 }
 
 /**
@@ -110,35 +112,85 @@ extern status_t convertToFeet(float *height_in_ft, float *height_in_m)
   * @param  accel       A pointer to store the magnitude of the acceleration.
   * @return Status
   */
-extern status_t accelMagnitude(int16_t *accel, int16_t *accel_x, int16_t *accel_y, int16_t *accel_z)
+extern void accelMagnitude(int16_t *accel, int16_t *accel_x, int16_t *accel_y, int16_t *accel_z)
 {
 	*accel = sqrt(pow(*accel_x,2)+pow(*accel_y,2)+pow(*accel_z,2));
-
-	return STATUS_OK;
 }
 
-extern status_t accelerometerGetAndLog(&accel_x, &accel_y, &accel_z) {
-    retval = accelerometerGetData(&accel_x, &accel_y, &accel_z);
-    /* TODO: Log accel_x, accel_y, accel_z to logging file */
+
+extern status_t accelerometerGetAndLog(int16_t *accel_x, int16_t *accel_y, int16_t *accel_z) {
+    retval = accelerometerGetData(accel_x, accel_y, accel_z);
+    if (retval == STATUS_OK) {
+        int16_t buffer[] = {*accel_x, *accel_y, *accel_z};
+        pFile = fopen (sdSensorDataPath, "a");
+        fwrite(buffer, sizeof(int16_t), sizeof(buffer), pFile);
+        fclose (pFile);
+    }
     return retval;
 }
 
-extern status_t barometerGetAndLog(&curr_pres) {
-    retval = barometerGetCompensatedPressure(&curr_pres);
-    /* TODO: Log curr_pres to logging file */
+extern status_t barometerGetAndLog(float *curr_pres) {
+    retval = barometerGetCompensatedPressure(curr_pres);
+    if (retval == STATUS_OK) {
+        float buffer[] = {*curr_pres};
+        pFile = fopen (sdSensorDataPath, "a");
+        fwrite(buffer, sizeof(float), sizeof(buffer), pFile);
+        fclose (pFile);
+    }
     return retval;
 }
 
-extern status_t barometerGetPresTempAndLog(&curr_pres) {
-    retval = barometerGetCompensatedPressure(&curr_pres);
-    /* TODO: Log curr_pres to logging file */
+extern status_t barometerGetPresTempAndLog(float *curr_pres, float *curr_temp) {
+    retval = barometerGetCompensatedValues(curr_pres, curr_temp);
+    if (retval == STATUS_OK) {
+        float buffer[] = {*curr_pres, *curr_temp};
+        pFile = fopen (sdSensorDataPath, "a");
+        fwrite(buffer, sizeof(float), sizeof(buffer), pFile);
+        fclose (pFile);
+    }
     return retval;
 }
 
 extern void changeState(state_t *curr_state, state_t state) {
     *curr_state = state;
-    /* TODO: Log curr_state to state file */
+    int8_t buffer[] = { state };
+    pFile = fopen (sdStatesPath, "a");
+    fwrite (buffer, sizeof(int8_t), sizeof(buffer), pFile);
+    fclose(pFile);
 }
+
+extern void writeBaseVars(float base_pres, float base_temp, float base_alt) {
+    float buffer[] = {base_pres, base_temp, base_alt};
+    pFile = fopen (sdBaseVarsPath, "w");
+    fseek(pFile, 0, SEEK_SET);
+    fwrite (buffer, sizeof(float), sizeof(buffer), pFile);
+    fclose(pFile);
+}
+
+extern void recoverLastState(state_t *curr_state); {
+    int8_t buf[1];
+    pFile = fopen (sdStatesPath, "r");
+    fseek(pFile, -1, SEEK_END);
+    fread(buf, sizeof(int8_t), 1, pFile);
+    *curr_state = buf[0];
+    fclose(pFile);
+}
+
+extern void recoverBaseVars(float *base_pres, float *base_temp, float *base_alt) {
+    float buf[3];
+    pFile = fopen (sdStatesPath, "r");
+    fread(buf, sizeof(float), 3, pFile);
+    *base_pres = buf[0];
+    *base_temp = buf[1];
+    *base_alt = buf[2];
+    fclose(pFile);
+}
+
+extern void recoverAll(state_t *curr_state, float *base_pres, float *base_temp, float *base_alt) {
+    recoverLastState(curr_state);
+    recoverBaseVars(base_pres, base_temp, base_alt);
+}
+
 
 
 /* ROCKET FLIGHT STATE TRANSITION DETECTION FUNCTIONS ======================================================= */
@@ -147,7 +199,7 @@ extern void changeState(state_t *curr_state, state_t state) {
 TODO LIST
 - Check units:
     - height in m vs ft
-    - accel in m/s^2 vs g
+    - accel in m/s^2 vs g vs millig
 - Incorporate Kalman data filtering?
 - Make sure a program clears the SD card / base variable file before every flight BUT NOT AFTER A BLACKOUT
 - Implement 7/11 split checks
@@ -155,6 +207,10 @@ TODO LIST
 - Make wrapper for sensor query functions to also log sensor data whenever I query it
 - Make wrapper to change states and write to SD
 - Three files: state file, logging file and base variables file
+- For reading/recording state you should fopen, read or write, and then fclose to avoid corruption
+- to log: just open in append mode and fwrite
+- to write to specific places, open in write mode, fseek, and then fwrite
+- should I log height too? If so, in feet or in meters?
 */
 
 /**
@@ -167,10 +223,7 @@ TODO LIST
   */
 static bool testStandby(int16_t *accel, float *curr_pres, float *curr_temp, float *curr_alt)
 {
-    barometerGetCompensatedValues(curr_pres, curr_temp);
-    /* TODO: log */
-    calcAlt(curr_pres, curr_alt); 
-    bool standby_accel = (fabs(*accel - g) <= EPSILON);
+    bool standby_accel = (fabs(*accel - 1000) <= EPSILON);
     bool standby_alt = (fabs(*curr_alt - LOCN_ALT) < MIN_APOGEE_DEPLOY); /* In case we launch on a hill */
     return (standby_alt && standby_accel);
 }
@@ -192,7 +245,11 @@ static bool detectLaunch(int16_t *accel)
   */
 static bool detectBurnout(int16_t *prev_accel, int16_t *accel)
 {
-    /* Barometer data is not be stable at this point. */
+    /* 
+    Barometer data is not be stable at this point.
+    Accelerometer data may not be either. In that case, we'll just wait ~4s for burnout
+     (depends on rocket though)
+     */
     if (*accel <= *prev_accel) {
         return true;
     } else {
@@ -328,17 +385,17 @@ int main()
                     if (retval != STATUS_OK) {
                         break;
                     }
-                    retval = accelMagnitude(&accel, &accel_x, &accel_y, &accel_z);
+                    accelMagnitude(&accel, &accel_x, &accel_y, &accel_z);
+                    retval = barometerGetPresTempAndLog(&base_pres, &base_temp);
                     if (retval != STATUS_OK) {
                         break;
                     }
+                    calcAlt(&base_pres, &base_alt);
                     if (testStandby(&accel, &base_pres, &base_temp, &base_alt)) {
-                        /* TODO: Update/store base_pres, temp and alt in flash */
+                        writeBaseVars(base_pres, base_temp, base_alt); // update base variables
                         changeState(&curr_state, APDET_STATE_STANDBY);
                     } else {
-                        /* TODO: Get them from flash memory (assume we already set them earlier) */
-                        //printf("Retrieveing state and variables from flash memory.");
-                        
+                        recoverAll(&curr_state, &base_pres, &base_temp, &base_alt); //recover base variables and state
                     }
                     break;
                 }
@@ -359,8 +416,14 @@ int main()
                             changeState(&curr_state, APDET_STATE_POWERED_ASCENT);
                         }
                     } else {
-                        launch_count = NUM_CHECKS; /* ensures "in a row" */
-                        /* TODO: Update/store base_pres, temp and alt in flash */
+                        launch_count = NUM_CHECKS;
+                        //update base values
+                        retval = barometerGetPresTempAndLog(&base_pres, &base_temp);
+                        if (retval != STATUS_OK) {
+                            break;
+                        }
+                        calcAlt(&base_pres, &base_alt);
+                        writeBaseVars(base_pres, base_temp, base_alt);
                     }
                     break;
                 }
