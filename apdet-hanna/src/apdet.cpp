@@ -24,7 +24,7 @@ Hardware-independent functions.
 
 #define LOCN_ALT                      785  /* altitude of Hanna, Alberta (m) */
 #define EPSILON                     0.005  /* used for floating point value equality */
-#define STBY_ACCEL_EPSILON             ??  /* how much the accelerometer varies at standby */
+#define STBY_ACCEL_EPSILON              0  /* TODO: how much the accelerometer varies at standby */
 
 #define P_0                       1013.25  /* pressure at 0 altitude (mb) */
 #define T_0                        288.15  /* temperature at 0 altitude (K) */
@@ -33,6 +33,7 @@ Hardware-independent functions.
 #define g                         9.80665  /* gravitational acceleration (m/s^2) */
 
 //TODO: define memory constants for SD
+SDBlockDevice sd(SPI_MOSI, SPI_MISO, SPI_SCK, SPI_CS);
 static const char* sdSensorDataPath = "/sd/sensorData.bin";
 static const char* sdBaseVarsPath = "/sd/baseVars.bin";
 static const char* sdStatesPath = "/sd/states.bin";
@@ -99,6 +100,12 @@ extern void calcHeight(float *curr_pres, float *base_alt, float *height)
     float curr_alt;
     calcAlt(curr_pres, &curr_alt);
     *height = curr_alt - *base_alt;
+    // Logging
+    int timestamp = 0;
+    /* TODO: get timestamp */
+    FILE* pFile = fopen (sdSensorDataPath, "a");
+    fprintf(pFile, "[%d][Height] %f \n", timestamp, *height);
+    fclose (pFile);
 }
 
 extern void convertToFeet(float *height_in_ft, float *height_in_m)
@@ -122,11 +129,12 @@ extern void accelMagnitude(int16_t *accel, int16_t *accel_x, int16_t *accel_y, i
 
 extern status_t accelerometerGetAndLog(int16_t *accel_x, int16_t *accel_y, int16_t *accel_z) 
 {
-    retval = accelerometerGetData(accel_x, accel_y, accel_z);
+    status_t retval = accelerometerGetData(accel_x, accel_y, accel_z);
     if (retval == STATUS_OK) {
-        int16_t buffer[] = {*accel_x, *accel_y, *accel_z};
-        pFile = fopen (sdSensorDataPath, "a");
-        fwrite(buffer, sizeof(int16_t), sizeof(buffer), pFile);
+        int timestamp = 0;
+        /* TODO: get timestamp */
+        FILE* pFile = fopen (sdSensorDataPath, "a");
+        fprintf(pFile, "[%d][Accelerometer] %d %d %d \n", timestamp, *accel_x, *accel_y, *accel_z);
         fclose (pFile);
     }
     return retval;
@@ -134,11 +142,12 @@ extern status_t accelerometerGetAndLog(int16_t *accel_x, int16_t *accel_y, int16
 
 extern status_t barometerGetAndLog(float *curr_pres) 
 {
-    retval = barometerGetCompensatedPressure(curr_pres);
+    status_t retval = barometerGetCompensatedPressure(curr_pres);
     if (retval == STATUS_OK) {
-        float buffer[] = {*curr_pres};
-        pFile = fopen (sdSensorDataPath, "a");
-        fwrite(buffer, sizeof(float), sizeof(buffer), pFile);
+        int timestamp = 0;
+        /* TODO: get timestamp */
+        FILE* pFile = fopen (sdSensorDataPath, "a");
+        fprintf(pFile, "[%d][Barometer] %f \n", timestamp, *curr_pres);
         fclose (pFile);
     }
     return retval;
@@ -146,11 +155,12 @@ extern status_t barometerGetAndLog(float *curr_pres)
 
 extern status_t barometerGetPresTempAndLog(float *curr_pres, float *curr_temp) 
 {
-    retval = barometerGetCompensatedValues(curr_pres, curr_temp);
+    status_t retval = barometerGetCompensatedValues(curr_pres, curr_temp);
     if (retval == STATUS_OK) {
-        float buffer[] = {*curr_pres, *curr_temp};
-        pFile = fopen (sdSensorDataPath, "a");
-        fwrite(buffer, sizeof(float), sizeof(buffer), pFile);
+        int timestamp = 0;
+        /* TODO: get timestamp */
+        FILE* pFile = fopen (sdSensorDataPath, "a");
+        fprintf(pFile, "[%d][Barometer] %f %f \n", timestamp, *curr_pres, *curr_temp);
         fclose (pFile);
     }
     return retval;
@@ -160,7 +170,7 @@ extern void changeState(state_t *curr_state, state_t state)
 {
     *curr_state = state;
     int8_t buffer[] = { state };
-    pFile = fopen (sdStatesPath, "a");
+    FILE* pFile = fopen (sdStatesPath, "a");
     fwrite (buffer, sizeof(int8_t), sizeof(buffer), pFile);
     fclose(pFile);
 }
@@ -168,25 +178,26 @@ extern void changeState(state_t *curr_state, state_t state)
 extern void writeBaseVars(float base_pres, float base_temp, float base_alt) 
 {
     float buffer[] = {base_pres, base_temp, base_alt};
-    pFile = fopen (sdBaseVarsPath, "w");
+    FILE* pFile = fopen (sdBaseVarsPath, "w");
     fseek(pFile, 0, SEEK_SET);
     fwrite (buffer, sizeof(float), sizeof(buffer), pFile);
     fclose(pFile);
 }
 
-extern void recoverLastState(state_t *curr_state); {
+extern void recoverLastState(state_t *curr_state)
+{
     int8_t buf[1];
-    pFile = fopen (sdStatesPath, "r");
+    FILE* pFile = fopen (sdStatesPath, "r");
     fseek(pFile, -1, SEEK_END);
     fread(buf, sizeof(int8_t), 1, pFile);
-    *curr_state = buf[0];
+    *curr_state = (state_t)buf[0];
     fclose(pFile);
 }
 
 extern void recoverBaseVars(float *base_pres, float *base_temp, float *base_alt) 
 {
     float buf[3];
-    pFile = fopen (sdStatesPath, "r");
+    FILE* pFile = fopen (sdStatesPath, "r");
     fread(buf, sizeof(float), 3, pFile);
     *base_pres = buf[0];
     *base_temp = buf[1];
@@ -219,15 +230,10 @@ TODO LIST
     - accel in m/s^2 vs g vs millig
 - Incorporate Kalman data filtering?
 - Make sure a program clears the SD card / base variable file before every flight BUT NOT AFTER A BLACKOUT
-- Implement 5/10 split checks
 - Documentation updates
-- Make wrapper for sensor query functions to also log sensor data whenever I query it
-- Make wrapper to change states and write to SD
-- Three files: state file, logging file and base variables file
-- For reading/recording state you should fopen, read or write, and then fclose to avoid corruption
-- to log: just open in append mode and fwrite
-- to write to specific places, open in write mode, fseek, and then fwrite
 - should I log height too? If so, in feet or in meters?
+- [<timestamp>][barometer]<reading>
+- fprintf(log_fp, “[%d][barom] %dbar\n”, timestamp, barom_val);
 */
 
 /**
@@ -355,11 +361,13 @@ int main()
         retval = accelerometerInit();
     } while (retval != STATUS_OK);
 
+    /* 
     SDBlockDevice sd(SPI_MOSI, SPI_MISO, SPI_SCK, SPI_CS);
 
     do {
         retval = sd.init();
     } while (retval != 0);
+    */
 
     /* RECOVER IN CASE OF BLACKOUT */
     float base_pres;
@@ -367,7 +375,7 @@ int main()
     float base_alt;
 
     /* For detectBurnout function */
-    float bo_det_accel = 0;
+    int16_t bo_det_accel = 0;
 
     /* For testApogee function */
     float test_ap_height = 0;
@@ -439,10 +447,7 @@ int main()
                     if (retval != STATUS_OK) {
                         break;
                     }
-                    retval = accelMagnitude(&accel, &accel_x, &accel_y, &accel_z);
-                    if (retval != STATUS_OK) {
-                        break;
-                    }
+                    accelMagnitude(&accel, &accel_x, &accel_y, &accel_z);
                     if (detectLaunch(&accel)) {
                         launch_count_arr[launch_count_idx] = 1;
                         launch_count_idx = (launch_count_idx + 1) % ARR_SIZE;
@@ -469,10 +474,7 @@ int main()
                     if (retval != STATUS_OK) {
                         break;
                     }
-                    retval = accelMagnitude(&accel, &accel_x, &accel_y, &accel_z);
-                    if (retval != STATUS_OK) {
-                        break;
-                    }
+                    accelMagnitude(&accel, &accel_x, &accel_y, &accel_z);
                     if (detectBurnout(&bo_det_accel, &accel)) {
                         burnout_count_arr[burnout_count_idx] = 1;
                         burnout_count_idx = (burnout_count_idx + 1) % ARR_SIZE;
@@ -492,10 +494,7 @@ int main()
                     if (retval != STATUS_OK) {
                         break;
                     }
-                    retval = accelMagnitude(&accel, &accel_x, &accel_y, &accel_z);
-                    if (retval != STATUS_OK) {
-                        break;
-                    }
+                    accelMagnitude(&accel, &accel_x, &accel_y, &accel_z);
                     status_t retval = barometerGetAndLog(&curr_pres);
                     if (retval != STATUS_OK) {
                         break;
