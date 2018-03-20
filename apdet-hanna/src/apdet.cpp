@@ -16,13 +16,15 @@ Hardware-independent functions.
 //#define SIM_BURNOUT_ACCEL_DELTA         4  /* 4s till burnout (data is pretty trash during powered ascent) */
 #define ACCEL_NEAR_APOGEE             150  /* accel magnitude <= 150 millig indicates we are close to apogee */
 #define MAIN_DEPLOY_HEIGHT           1500  /* height at which we deploy main (ft) */
-#define MIN_APOGEE_DEPLOY              65  /* height above which we want to deploy drogue, payload and main (in ft) */
+#define MIN_APOGEE_DEPLOY              20  /* height above which we want to deploy drogue, payload and main (ft) */
 
 #define NUM_CHECKS                      5  /* each condition has to pass 5 times */
+#define ARR_SIZE                       10  /* size of state change checking array */
 #define NUM_WRITE_ATTEMPTS              5  /* 5 is temp value, tbd from testing */
 
-#define LOCN_ALT                      785  /* altitude of Hanna, Alberta */
-#define EPSILON                     0.005  /* */
+#define LOCN_ALT                      785  /* altitude of Hanna, Alberta (m) */
+#define EPSILON                     0.005  /* used for floating point value equality */
+#define STBY_ACCEL_EPSILON             ??  /* how much the accelerometer varies at standby */
 
 #define P_0                       1013.25  /* pressure at 0 altitude (mb) */
 #define T_0                        288.15  /* temperature at 0 altitude (K) */
@@ -118,7 +120,8 @@ extern void accelMagnitude(int16_t *accel, int16_t *accel_x, int16_t *accel_y, i
 }
 
 
-extern status_t accelerometerGetAndLog(int16_t *accel_x, int16_t *accel_y, int16_t *accel_z) {
+extern status_t accelerometerGetAndLog(int16_t *accel_x, int16_t *accel_y, int16_t *accel_z) 
+{
     retval = accelerometerGetData(accel_x, accel_y, accel_z);
     if (retval == STATUS_OK) {
         int16_t buffer[] = {*accel_x, *accel_y, *accel_z};
@@ -129,7 +132,8 @@ extern status_t accelerometerGetAndLog(int16_t *accel_x, int16_t *accel_y, int16
     return retval;
 }
 
-extern status_t barometerGetAndLog(float *curr_pres) {
+extern status_t barometerGetAndLog(float *curr_pres) 
+{
     retval = barometerGetCompensatedPressure(curr_pres);
     if (retval == STATUS_OK) {
         float buffer[] = {*curr_pres};
@@ -140,7 +144,8 @@ extern status_t barometerGetAndLog(float *curr_pres) {
     return retval;
 }
 
-extern status_t barometerGetPresTempAndLog(float *curr_pres, float *curr_temp) {
+extern status_t barometerGetPresTempAndLog(float *curr_pres, float *curr_temp) 
+{
     retval = barometerGetCompensatedValues(curr_pres, curr_temp);
     if (retval == STATUS_OK) {
         float buffer[] = {*curr_pres, *curr_temp};
@@ -151,7 +156,8 @@ extern status_t barometerGetPresTempAndLog(float *curr_pres, float *curr_temp) {
     return retval;
 }
 
-extern void changeState(state_t *curr_state, state_t state) {
+extern void changeState(state_t *curr_state, state_t state) 
+{
     *curr_state = state;
     int8_t buffer[] = { state };
     pFile = fopen (sdStatesPath, "a");
@@ -159,7 +165,8 @@ extern void changeState(state_t *curr_state, state_t state) {
     fclose(pFile);
 }
 
-extern void writeBaseVars(float base_pres, float base_temp, float base_alt) {
+extern void writeBaseVars(float base_pres, float base_temp, float base_alt) 
+{
     float buffer[] = {base_pres, base_temp, base_alt};
     pFile = fopen (sdBaseVarsPath, "w");
     fseek(pFile, 0, SEEK_SET);
@@ -176,7 +183,8 @@ extern void recoverLastState(state_t *curr_state); {
     fclose(pFile);
 }
 
-extern void recoverBaseVars(float *base_pres, float *base_temp, float *base_alt) {
+extern void recoverBaseVars(float *base_pres, float *base_temp, float *base_alt) 
+{
     float buf[3];
     pFile = fopen (sdStatesPath, "r");
     fread(buf, sizeof(float), 3, pFile);
@@ -186,11 +194,20 @@ extern void recoverBaseVars(float *base_pres, float *base_temp, float *base_alt)
     fclose(pFile);
 }
 
-extern void recoverAll(state_t *curr_state, float *base_pres, float *base_temp, float *base_alt) {
+extern void recoverAll(state_t *curr_state, float *base_pres, float *base_temp, float *base_alt) 
+{
     recoverLastState(curr_state);
     recoverBaseVars(base_pres, base_temp, base_alt);
 }
 
+extern int sumArrElems(int arr[], int n)
+{
+    int sum = 0;
+    for (int i = 0; i < n; i++) {
+        sum += arr[i];
+    }
+    return sum;
+}
 
 
 /* ROCKET FLIGHT STATE TRANSITION DETECTION FUNCTIONS ======================================================= */
@@ -202,7 +219,7 @@ TODO LIST
     - accel in m/s^2 vs g vs millig
 - Incorporate Kalman data filtering?
 - Make sure a program clears the SD card / base variable file before every flight BUT NOT AFTER A BLACKOUT
-- Implement 7/11 split checks
+- Implement 5/10 split checks
 - Documentation updates
 - Make wrapper for sensor query functions to also log sensor data whenever I query it
 - Make wrapper to change states and write to SD
@@ -223,7 +240,7 @@ TODO LIST
   */
 static bool testStandby(int16_t *accel, float *curr_pres, float *curr_temp, float *curr_alt)
 {
-    bool standby_accel = (fabs(*accel - 1000) <= EPSILON);
+    bool standby_accel = (fabs(*accel - 1000) <= STBY_ACCEL_EPSILON); // check against last year's data
     bool standby_alt = (fabs(*curr_alt - LOCN_ALT) < MIN_APOGEE_DEPLOY); /* In case we launch on a hill */
     return (standby_alt && standby_accel);
 }
@@ -313,7 +330,7 @@ static bool detectMainAlt(float *base_alt, float *curr_pres)
   */
 static bool detectLanded(float *base_alt, float *curr_pres, float *height)
 {
-    float prev_height = *height; //threshold floats, you'll never get equality, too precise
+    float prev_height = *height;
     calcHeight(curr_pres, base_alt, height);
 
     return (fabs(*height - prev_height) <= EPSILON);
@@ -359,12 +376,28 @@ int main()
     float land_det_height = 0;
     
     /* don't mind resetting these */
-    int launch_count = NUM_CHECKS;
-    int burnout_count = NUM_CHECKS;
-    int coasting_count = NUM_CHECKS;
-    int apogee_count = NUM_CHECKS;
-    int main_count = NUM_CHECKS;
-    int land_count = NUM_CHECKS;
+    int launch_count_arr[ARR_SIZE];
+    int burnout_count_arr[ARR_SIZE];
+    int coasting_count_arr[ARR_SIZE];
+    int apogee_count_arr[ARR_SIZE];
+    int main_count_arr[ARR_SIZE];
+    int land_count_arr[ARR_SIZE];
+
+    /* is this too much setup in case of a blackout? */
+    memset(launch_count_arr, 0, ARR_SIZE);
+    memset(burnout_count_arr, 0, ARR_SIZE);
+    memset(coasting_count_arr, 0, ARR_SIZE);
+    memset(apogee_count_arr, 0, ARR_SIZE);
+    memset(main_count_arr, 0, ARR_SIZE);
+    memset(land_count_arr, 0, ARR_SIZE);
+
+    /* don't mind resetting these either*/
+    int launch_count_idx = 0;
+    int burnout_count_idx = 0;
+    int coasting_count_idx = 0;
+    int apogee_count_idx = 0;
+    int main_count_idx = 0;
+    int land_count_idx = 0;
 
     state_t curr_state;
     changeState(&curr_state, APDET_STATE_TESTING);
@@ -411,12 +444,14 @@ int main()
                         break;
                     }
                     if (detectLaunch(&accel)) {
-                        launch_count--;
-                        if (launch_count <= 0) {
+                        launch_count_arr[launch_count_idx] = 1;
+                        launch_count_idx = (launch_count_idx + 1) % ARR_SIZE;
+                        if (sumArrElems(launch_count_arr, ARR_SIZE) >= NUM_CHECKS) {
                             changeState(&curr_state, APDET_STATE_POWERED_ASCENT);
                         }
                     } else {
-                        launch_count = NUM_CHECKS;
+                        launch_count_arr[launch_count_idx] = 0;
+                        launch_count_idx = (launch_count_idx + 1) % ARR_SIZE;
                         //update base values
                         retval = barometerGetPresTempAndLog(&base_pres, &base_temp);
                         if (retval != STATUS_OK) {
@@ -439,12 +474,14 @@ int main()
                         break;
                     }
                     if (detectBurnout(&bo_det_accel, &accel)) {
-                        burnout_count--;
-                        if (burnout_count <= 0) {
+                        burnout_count_arr[burnout_count_idx] = 1;
+                        burnout_count_idx = (burnout_count_idx + 1) % ARR_SIZE;
+                        if (sumArrElems(burnout_count_arr, ARR_SIZE) >= NUM_CHECKS) {
                             changeState(&curr_state, APDET_STATE_COASTING);
                         }
                     } else {
-                        burnout_count = NUM_CHECKS;
+                        burnout_count_arr[burnout_count_idx] = 0;
+                        burnout_count_idx = (burnout_count_idx + 1) % ARR_SIZE;
                     }
                     break;
                 }
@@ -464,12 +501,14 @@ int main()
                         break;
                     }
                     if (nearingApogee(&accel, &base_alt, &curr_pres)) {
-                        coasting_count--;
-                        if (coasting_count <= 0) {
+                        coasting_count_arr[coasting_count_idx] = 1;
+                        coasting_count_idx = (coasting_count_idx + 1) % ARR_SIZE;
+                        if (sumArrElems(coasting_count_arr, ARR_SIZE) >= NUM_CHECKS) {
                             changeState(&curr_state, APDET_STATE_APOGEE_TESTING);
                         }
                     } else {
-                        coasting_count = NUM_CHECKS;
+                        coasting_count_arr[coasting_count_idx] = 0;
+                        coasting_count_idx = (coasting_count_idx + 1) % ARR_SIZE;
                     }
                     break;
                 }
@@ -481,12 +520,14 @@ int main()
                         break;
                     }
                     if (testApogee(&base_alt, &curr_pres, &test_ap_height)) {
-                        apogee_count--;
-                        if (apogee_count <= 0) {
+                        apogee_count_arr[apogee_count_idx] = 1;
+                        apogee_count_idx = (apogee_count_idx + 1) % ARR_SIZE;
+                        if (sumArrElems(apogee_count_arr, ARR_SIZE) >= NUM_CHECKS) {
                             changeState(&curr_state, APDET_STATE_DEPLOY_DROGUE);
                         }
                     } else {
-                        apogee_count = NUM_CHECKS;
+                        apogee_count_arr[apogee_count_idx] = 0;
+                        apogee_count_idx = (apogee_count_idx + 1) % ARR_SIZE;
                     }
                     break;
                 }
@@ -514,12 +555,14 @@ int main()
                         break;
                     }
                     if (detectMainAlt(&base_alt, &curr_pres)) {
-                        main_count--;
-                        if (main_count <= 0) {
+                        main_count_arr[main_count_idx] = 1;
+                        main_count_idx = (main_count_idx + 1) % ARR_SIZE;
+                        if (sumArrElems(main_count_arr, ARR_SIZE) >= NUM_CHECKS) {
                             changeState(&curr_state, APDET_STATE_DEPLOY_MAIN);
                         }
                     } else {
-                        main_count = NUM_CHECKS;
+                        main_count_arr[main_count_idx] = 0;
+                        main_count_idx = (main_count_idx + 1) % ARR_SIZE;
                     }
                     break;
                 }
@@ -540,12 +583,14 @@ int main()
                         break;
                     }
                     if (detectLanded(&base_alt, &curr_pres, &land_det_height)){
-                        land_count--;
-                        if (land_count <= 0) {
+                        land_count_arr[land_count_idx] = 1;
+                        land_count_idx = (land_count_idx + 1) % ARR_SIZE;
+                        if (sumArrElems(land_count_arr, ARR_SIZE) >= NUM_CHECKS) {
                             changeState(&curr_state, APDET_STATE_LANDED);
                         }
                     } else {
-                        land_count = NUM_CHECKS;
+                        land_count_arr[land_count_idx] = 0;
+                        land_count_idx = (land_count_idx + 1) % ARR_SIZE;
                     }
                     break;
                 }
