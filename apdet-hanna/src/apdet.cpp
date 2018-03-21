@@ -33,12 +33,12 @@ Hardware-independent functions.
 #define g                         9.80665  /* gravitational acceleration (m/s^2) */
 
 //TODO: define memory constants for SD
-SDBlockDevice sd(SPI_MOSI, SPI_MISO, SPI_SCK, SPI_CS);
 static const char* sdSensorDataPath = "/sd/sensorData.bin";
 static const char* sdBaseVarsPath = "/sd/baseVars.bin";
 static const char* sdStatesPath = "/sd/states.bin";
 static const char* sdMountPt = "sd";
-FATFileSystem fs(sdMountPt, &sd);
+
+Timer timer;
 
 /* DRIVERS ================================================================================================== */
 
@@ -101,10 +101,9 @@ extern void calcHeight(float *curr_pres, float *base_alt, float *height)
     calcAlt(curr_pres, &curr_alt);
     *height = curr_alt - *base_alt;
     // Logging
-    int timestamp = 0;
-    /* TODO: get timestamp */
+    float timestamp = timer.read();
     FILE* pFile = fopen (sdSensorDataPath, "a");
-    fprintf(pFile, "[%d][Height] %f \n", timestamp, *height);
+    fprintf(pFile, "[%0.4f][Height] %0.4f \n", timestamp, *height);
     fclose (pFile);
 }
 
@@ -131,10 +130,10 @@ extern status_t accelerometerGetAndLog(int16_t *accel_x, int16_t *accel_y, int16
 {
     status_t retval = accelerometerGetData(accel_x, accel_y, accel_z);
     if (retval == STATUS_OK) {
-        int timestamp = 0;
-        /* TODO: get timestamp */
+        float timestamp = timer.read();
         FILE* pFile = fopen (sdSensorDataPath, "a");
-        fprintf(pFile, "[%d][Accelerometer] %d %d %d \n", timestamp, *accel_x, *accel_y, *accel_z);
+        fprintf(pFile, "[%.4f][Accelerometer] X: %d Y: %d Z: %d \n",
+                timestamp, *accel_x, *accel_y, *accel_z);
         fclose (pFile);
     }
     return retval;
@@ -144,10 +143,9 @@ extern status_t barometerGetAndLog(float *curr_pres)
 {
     status_t retval = barometerGetCompensatedPressure(curr_pres);
     if (retval == STATUS_OK) {
-        int timestamp = 0;
-        /* TODO: get timestamp */
+        float timestamp = timer.read();
         FILE* pFile = fopen (sdSensorDataPath, "a");
-        fprintf(pFile, "[%d][Barometer] %f \n", timestamp, *curr_pres);
+        fprintf(pFile, "[%.4f] [Barometer] Pres: %.4f \n", timestamp, *curr_pres);
         fclose (pFile);
     }
     return retval;
@@ -157,10 +155,9 @@ extern status_t barometerGetPresTempAndLog(float *curr_pres, float *curr_temp)
 {
     status_t retval = barometerGetCompensatedValues(curr_pres, curr_temp);
     if (retval == STATUS_OK) {
-        int timestamp = 0;
-        /* TODO: get timestamp */
+        float timestamp = timer.read();
         FILE* pFile = fopen (sdSensorDataPath, "a");
-        fprintf(pFile, "[%d][Barometer] %f %f \n", timestamp, *curr_pres, *curr_temp);
+        fprintf(pFile, "[%.4f] [Barometer] Pres: %.4f Temp: %.4f \n", timestamp, *curr_pres, *curr_temp);
         fclose (pFile);
     }
     return retval;
@@ -361,13 +358,16 @@ int main()
         retval = accelerometerInit();
     } while (retval != STATUS_OK);
 
-    /* 
+    
     SDBlockDevice sd(SPI_MOSI, SPI_MISO, SPI_SCK, SPI_CS);
 
+    int ret;
+
     do {
-        retval = sd.init();
-    } while (retval != 0);
-    */
+        ret = sd.init();
+    } while (ret != 0);
+    
+    FATFileSystem fs(sdMountPt, &sd);
 
     /* RECOVER IN CASE OF BLACKOUT */
     float base_pres;
