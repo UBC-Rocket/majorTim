@@ -11,29 +11,28 @@ Hardware-independent functions.
 
 /* CONSTANTS ================================================================================================ */
 
-#define SIM_LAUNCH_ACCEL             1050  /* Assume we've launched when we detect accel >= 1050 millig */
+#define SIM_LAUNCH_ACCEL                1050  /* Assume we've launched when we detect accel >= 1050 millig */
                                            /* should be accel of least accelerating rocket */
-#define SIM_BURNOUT_ACCEL_DELTA      4000  /* 4s till burnout (data is pretty trash during powered ascent) */
-#define ACCEL_NEAR_APOGEE             150  /* accel magnitude <= 150 millig indicates we are close to apogee */
-#define MAIN_DEPLOY_HEIGHT           2000  /* height at which we deploy main (ft) */
-#define MIN_APOGEE_DEPLOY              20  /* height above which we want to deploy drogue, payload and main (m) */
+#define SIM_BURNOUT_ACCEL_DELTA         4000  /* 4s till burnout (data is pretty trash during powered ascent) */
+#define ACCEL_NEAR_APOGEE                150  /* accel magnitude <= 150 millig indicates we are close to apogee */
+#define MAIN_DEPLOY_HEIGHT              2000  /* height at which we deploy main (ft) */
+#define MIN_APOGEE_DEPLOY                 20  /* height above which we want to deploy drogue, payload and main (m) */
 
-#define NUM_CHECKS                      5  /* each condition has to pass 5 times */
-#define ARR_SIZE                       10  /* size of state change checking array */
+#define NUM_CHECKS                         5  /* each condition has to pass 5 times */
+#define ARR_SIZE                          10  /* size of state change checking array */
 
-#define LOCN_ALT                      785  /* altitude of Hanna, Alberta (m) */
-#define EPSILON                     0.005  /* used for floating point value equality */
-#define STBY_ACCEL_EPSILON
-                (SIM_LAUNCH_ACCEL - 1000)  /* maximum variation of the accelerometer at standby */
+#define LOCN_ALT                         785  /* altitude of Hanna, Alberta (m) */
+#define EPSILON                        0.005  /* used for floating point value equality */
+#define STBY_ACCEL_EPSILON                50  /* maximum variation of the accelerometer at standby */
 
-#define IREC_REGULATION_POST_DROGUE_DEPLOYMENT_PAUSE 3000
-#define PRESSURE_NORMALIZATION_PAUSE                  2000
+#define POST_DROGUE_DEPLOYMENT_PAUSE    3000
+#define PRESSURE_NORMALIZATION_PAUSE    2000
 
-#define P_0                       1013.25  /* pressure at 0 altitude (mb) */
-#define T_0                        288.15  /* temperature at 0 altitude (K) */
-#define L                         -0.0065  /* lapse rate (valid for heights between 0km and 11km) (K/m) */
-#define R                         287.053  /* gas constant for air (J/(kg K))*/
-#define g                         9.80665  /* gravitational acceleration (m/s^2) */
+#define P_0                          1013.25  /* pressure at 0 altitude (mb) */
+#define T_0                           288.15  /* temperature at 0 altitude (K) */
+#define L                            -0.0065  /* lapse rate (valid for heights between 0km and 11km) (K/m) */
+#define R                            287.053  /* gas constant for air (J/(kg K))*/
+#define g                            9.80665  /* gravitational acceleration (m/s^2) */
 
 static const char* logPath = "/sd/log.bin";
 static const char* sdBaseVarsPath = "/sd/baseVars.bin";
@@ -211,8 +210,8 @@ extern status_t changeState(state_t *curr_state, state_t state)
 
     /* Logging */
     int timestamp = timer.read_ms();
-    FILE *pFile = fopen(logPath, "a");
-    fprintf("[%d] [State Change] %d\n", timestamp, (int8_t)state);
+    pFile = fopen(logPath, "a");
+    fprintf(pFile, "[%d] [State Change] %d\n", timestamp, (int8_t)state);
     fclose(pFile);
     return STATUS_OK;
 }
@@ -530,7 +529,7 @@ int main()
                         break;
                     }
                     accelMagnitude(&accel, accel_x, accel_y, accel_z);
-                    if (detectBurnout(bo_det_accel, accel)) {
+                    if (detectBurnout(&bo_det_accel, accel)) {
                         burnout_count_arr[burnout_count_idx] = 1;
                         if (sumArrElems(burnout_count_arr, ARR_SIZE) >= NUM_CHECKS) {
                             changeState(&curr_state, APDET_STATE_COASTING);
@@ -571,7 +570,7 @@ int main()
                     if (retval != STATUS_OK) {
                         break;
                     }
-                    if (testApogee(base_alt, curr_pres, test_ap_height)) {
+                    if (testApogee(base_alt, curr_pres, &test_ap_height)) {
                         apogee_count_arr[apogee_count_idx] = 1;
                         if (sumArrElems(apogee_count_arr, ARR_SIZE) >= NUM_CHECKS) {
                             changeState(&curr_state, APDET_STATE_DEPLOY_DROGUE);
@@ -586,7 +585,7 @@ int main()
             case APDET_STATE_DEPLOY_DROGUE:
                 {
                     deployDrogue();
-                    wait_ms(IREC_REGULATION_POST_DROGUE_DEPLOYMENT_PAUSE);
+                    wait_ms(POST_DROGUE_DEPLOYMENT_PAUSE);
                     changeState(&curr_state, APDET_STATE_DEPLOY_PAYLOAD);
                     break;
                 }
@@ -630,7 +629,7 @@ int main()
                     if (retval != STATUS_OK) {
                         break;
                     }
-                    if (detectLanded(base_alt, curr_pres, land_det_height)){
+                    if (detectLanded(base_alt, curr_pres, &land_det_height)){
                         land_count_arr[land_count_idx] = 1;
                         if (sumArrElems(land_count_arr, ARR_SIZE) >= NUM_CHECKS) {
                             changeState(&curr_state, APDET_STATE_LANDED);
