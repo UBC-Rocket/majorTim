@@ -7,43 +7,13 @@ Hardware-independent functions.
 #include <math.h>
 #include "SDBlockDevice.h"
 #include "FATFileSystem.h"
-
-
-/* CONSTANTS ================================================================================================ */
-
-#define SIM_LAUNCH_ACCEL                1050  /* Assume we've launched when we detect accel >= 1050 millig */
-                                           /* should be accel of least accelerating rocket */
-#define SIM_BURNOUT_ACCEL_DELTA         4000  /* 4s till burnout (data is pretty trash during powered ascent) */
-#define ACCEL_NEAR_APOGEE                150  /* accel magnitude <= 150 millig indicates we are close to apogee */
-#define MAIN_DEPLOY_HEIGHT              2000  /* height at which we deploy main (ft) */
-#define MIN_APOGEE_DEPLOY                 20  /* height above which we want to deploy drogue, payload and main (m) */
-
-#define NUM_CHECKS                         5  /* each condition has to pass 5 times */
-#define ARR_SIZE                          10  /* size of state change checking array */
-
-#define LOCN_ALT                         785  /* altitude of Hanna, Alberta (m) */
-#define EPSILON                        0.005  /* used for floating point value equality */
-#define STBY_ACCEL_EPSILON                50  /* maximum variation of the accelerometer at standby */
-
-#define POST_DROGUE_DEPLOYMENT_PAUSE    3000
-#define PRESSURE_NORMALIZATION_PAUSE    2000
-
-#define P_0                          1013.25  /* pressure at 0 altitude (mb) */
-#define T_0                           288.15  /* temperature at 0 altitude (K) */
-#define L                            -0.0065  /* lapse rate (valid for heights between 0km and 11km) (K/m) */
-#define R                            287.053  /* gas constant for air (J/(kg K))*/
-#define g                            9.80665  /* gravitational acceleration (m/s^2) */
-
-static const char* logPath = "/sd/log.bin";
-static const char* sdBaseVarsPath = "/sd/baseVars.bin";
-static const char* sdCurrStatePath = "/sd/currState.bin";
-static const char* sdMountPt = "sd";
+#include <apdet.h>
 
 /* STATIC VARS ============================================================================================== */
 
 Timer timer;
 
-/* DRIVERS ================================================================================================== */
+/* ACTUATORS ================================================================================================ */
 
 /**
   * @brief  Drogue deployment driver.
@@ -66,7 +36,7 @@ extern status_t deployDrogue()
   */
 extern status_t deployPayload()
 {
-    /* TODO */
+    /* TODO: Actuator */
     /* Logging */
     int timestamp = timer.read_ms();
     FILE *pFile = fopen(logPath, "a");
@@ -81,7 +51,7 @@ extern status_t deployPayload()
   */
 extern status_t deployMain()
 {
-    /* TODO */
+    /* TODO: Actuator */
     /* Logging */
     int timestamp = timer.read_ms();
     FILE *pFile = fopen(logPath, "a");
@@ -93,7 +63,7 @@ extern status_t deployMain()
 /* STATIC HELPER FUNCTIONS ================================================================================== */
 
 /**
-  * @brief  Altitude calculator.
+  * @brief  Computes altitude based on pressure.
   * @param  curr_pres   The current pressure.
   * @param  alt         A pointer to store the current altitude IN METERS.
   * @return Status
@@ -105,7 +75,7 @@ extern status_t calcAlt(float curr_pres, float *alt)
 }
 
 /**
-  * @brief  Height above ground (base altitude) calculator.
+  * @brief  Computes height above ground relative to base altitude.
   * @param  curr_pres   The current pressure.
   * @param  base_alt    The base altitude.
   * @param  height      A pointer to store the current height IN METERS.
@@ -126,21 +96,21 @@ extern status_t calcHeight(float curr_pres, float base_alt, float *height)
     return STATUS_OK;
 }
 
-extern status_t convertToFeet(float *height_in_ft, float height_in_m)
+extern status_t convertToFeet(float height_in_m, float *height_in_ft)
 {
 	*height_in_ft = height_in_m * 3.28084;
     return STATUS_OK;
 }
 
 /**
-  * @brief  Returns acceleration magnitude.
+  * @brief  Computes acceleration magnitude.
   * @param  accel_x     The x-component of the acceleration.
   * @param  accel_y     The y-component of the acceleration.
   * @param  accel_z     The z-component of the acceleration.
   * @param  accel       A pointer to store the magnitude of the acceleration.
   * @return Status
   */
-extern status_t accelMagnitude(int16_t *accel, int16_t accel_x, int16_t accel_y, int16_t accel_z)
+extern status_t accelMagnitude(int16_t accel_x, int16_t accel_y, int16_t accel_z, int16_t *accel)
 {
 	*accel = sqrt((accel_x * accel_x) + (accel_y * accel_y) + (accel_z * accel_z));
     return STATUS_OK;
@@ -198,7 +168,7 @@ extern status_t barometerGetPresTempAndLog(float *curr_pres, float *curr_temp)
     return STATUS_OK;
 }
 
-extern status_t changeState(state_t *curr_state, state_t state) 
+extern status_t changeState(state_t state, state_t *curr_state) 
 {
     /* Change the state */
     *curr_state = state;
@@ -270,20 +240,13 @@ extern int sumArrElems(int arr[], int n)
 
 /* 
 TODO LIST
-- Check units:
-    - height in m vs ft
-    - accel in m/s^2 vs g vs millig
 - Incorporate Kalman data filtering?
 - Make sure a program clears the SD card / base variable file before every flight BUT NOT AFTER A BLACKOUT
 - Documentation updates
-- Good practice to make everything return status_t for the future
-- Check pointer passing when just need value vs passing address to write
-- Make input parameter order consistent (first or last arg in function)
 - Get accelerometer log to find maximum variation of the accelerometer at standby
 - Comments in main
-- Try to move gets into main for logging purposes
+- Try to move gets into while before the switch statement for logging purposes
 - Find out how long it takes for pressure to normalize in the rocket (waits)
-- Organize constants
 - Wait after main deployment or nah
 */
 
@@ -309,7 +272,7 @@ static bool testStandby(int16_t accel, float curr_pres, float curr_temp, float c
   */
 static bool detectLaunch(int16_t accel)
 {
-    return (accel >= SIM_LAUNCH_ACCEL);
+    return (accel >= LAUNCH_ACCEL);
 }
 
 /** 
@@ -370,7 +333,7 @@ static bool detectMainAlt(float base_alt, float curr_pres)
     float height;
     calcHeight(curr_pres, base_alt, &height);
     float height_in_ft;
-    convertToFeet(&height_in_ft, height);
+    convertToFeet(height, &height_in_ft);
 
     return (height_in_ft <= MAIN_DEPLOY_HEIGHT);
 }
@@ -458,7 +421,7 @@ int main()
     int land_count_idx      = 0;
 
     state_t curr_state;
-    changeState(&curr_state, APDET_STATE_TESTING);
+    changeState(APDET_STATE_TESTING, &curr_state);
 
     while (1) {
 
@@ -474,7 +437,7 @@ int main()
                     if (retval != STATUS_OK) {
                         break;
                     }
-                    accelMagnitude(&accel, accel_x, accel_y, accel_z);
+                    accelMagnitude(accel_x, accel_y, accel_z, &accel);
 
                     /* Get pressure and temperature */
                     retval = barometerGetPresTempAndLog(&base_pres, &base_temp);
@@ -486,7 +449,7 @@ int main()
                     calcAlt(base_pres, &base_alt);
                     if (testStandby(accel, base_pres, base_temp, base_alt)) {
                         writeBaseVars(base_pres, base_temp, base_alt);
-                        changeState(&curr_state, APDET_STATE_STANDBY);
+                        changeState(APDET_STATE_STANDBY, &curr_state);
                     } else {
                         recoverAll(&curr_state, &base_pres, &base_temp, &base_alt);
                     }
@@ -499,14 +462,14 @@ int main()
                     if (retval != STATUS_OK) {
                         break;
                     }
-                    accelMagnitude(&accel, accel_x, accel_y, accel_z);
+                    accelMagnitude(accel_x, accel_y, accel_z, &accel);
 
 
                     if (detectLaunch(accel)) {
                         launch_count_arr[launch_count_idx] = 1;
                         launch_count_idx = (launch_count_idx + 1) % ARR_SIZE;
                         if (sumArrElems(launch_count_arr, ARR_SIZE) >= NUM_CHECKS) {
-                            changeState(&curr_state, APDET_STATE_POWERED_ASCENT);
+                            changeState(APDET_STATE_POWERED_ASCENT, &curr_state);
                         }
                     } else {
                         launch_count_arr[launch_count_idx] = 0;
@@ -528,11 +491,11 @@ int main()
                     if (retval != STATUS_OK) {
                         break;
                     }
-                    accelMagnitude(&accel, accel_x, accel_y, accel_z);
+                    accelMagnitude(accel_x, accel_y, accel_z, &accel);
                     if (detectBurnout(&bo_det_accel, accel)) {
                         burnout_count_arr[burnout_count_idx] = 1;
                         if (sumArrElems(burnout_count_arr, ARR_SIZE) >= NUM_CHECKS) {
-                            changeState(&curr_state, APDET_STATE_COASTING);
+                            changeState(APDET_STATE_COASTING, &curr_state);
                         }
                     } else {
                         burnout_count_arr[burnout_count_idx] = 0;
@@ -547,7 +510,7 @@ int main()
                     if (retval != STATUS_OK) {
                         break;
                     }
-                    accelMagnitude(&accel, accel_x, accel_y, accel_z);
+                    accelMagnitude(accel_x, accel_y, accel_z, &accel);
                     status_t retval = barometerGetAndLog(&curr_pres);
                     if (retval != STATUS_OK) {
                         break;
@@ -555,7 +518,7 @@ int main()
                     if (nearingApogee(accel, base_alt, curr_pres)) {
                         coasting_count_arr[coasting_count_idx] = 1;
                         if (sumArrElems(coasting_count_arr, ARR_SIZE) >= NUM_CHECKS) {
-                            changeState(&curr_state, APDET_STATE_APOGEE_TESTING);
+                            changeState(APDET_STATE_APOGEE_TESTING, &curr_state);
                         }
                     } else {
                         coasting_count_arr[coasting_count_idx] = 0;
@@ -573,7 +536,7 @@ int main()
                     if (testApogee(base_alt, curr_pres, &test_ap_height)) {
                         apogee_count_arr[apogee_count_idx] = 1;
                         if (sumArrElems(apogee_count_arr, ARR_SIZE) >= NUM_CHECKS) {
-                            changeState(&curr_state, APDET_STATE_DEPLOY_DROGUE);
+                            changeState(APDET_STATE_DEPLOY_DROGUE, &curr_state);
                         }
                     } else {
                         apogee_count_arr[apogee_count_idx] = 0;
@@ -586,14 +549,14 @@ int main()
                 {
                     deployDrogue();
                     wait_ms(POST_DROGUE_DEPLOYMENT_PAUSE);
-                    changeState(&curr_state, APDET_STATE_DEPLOY_PAYLOAD);
+                    changeState(APDET_STATE_DEPLOY_PAYLOAD, &curr_state);
                     break;
                 }
 
             case APDET_STATE_DEPLOY_PAYLOAD:
                 {
                     deployPayload();
-                    changeState(&curr_state, APDET_STATE_INITIAL_DESCENT);
+                    changeState(APDET_STATE_INITIAL_DESCENT, &curr_state);
                     wait_ms(PRESSURE_NORMALIZATION_PAUSE);
                     break;
                 }
@@ -607,7 +570,7 @@ int main()
                     if (detectMainAlt(base_alt, curr_pres)) {
                         main_count_arr[main_count_idx] = 1;
                         if (sumArrElems(main_count_arr, ARR_SIZE) >= NUM_CHECKS) {
-                            changeState(&curr_state, APDET_STATE_DEPLOY_MAIN);
+                            changeState(APDET_STATE_DEPLOY_MAIN, &curr_state);
                         }
                     } else {
                         main_count_arr[main_count_idx] = 0;
@@ -619,7 +582,7 @@ int main()
             case APDET_STATE_DEPLOY_MAIN:
                 {
                     deployMain();
-                    changeState(&curr_state, APDET_STATE_FINAL_DESCENT);
+                    changeState(APDET_STATE_FINAL_DESCENT, &curr_state);
                     break;
                 }
 
@@ -632,7 +595,7 @@ int main()
                     if (detectLanded(base_alt, curr_pres, &land_det_height)){
                         land_count_arr[land_count_idx] = 1;
                         if (sumArrElems(land_count_arr, ARR_SIZE) >= NUM_CHECKS) {
-                            changeState(&curr_state, APDET_STATE_LANDED);
+                            changeState(APDET_STATE_LANDED, &curr_state);
                         }
                     } else {
                         land_count_arr[land_count_idx] = 0;
