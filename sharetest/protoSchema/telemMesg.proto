@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+message TelemMsg {
+//note: all fields are optional by default
+	int64 timestamp = 1; //unix uses int64 time usually
+	repeated double data = 2;
+	fixed32 validDataIndexes = 3;
+}
+
+/******Run to generate file (do from project root folder):
+//note must be run from .proto folder because the message .options file will not be read
+
+COMPILED_NANOPB_DIR="nanopb"
+OUTPUT_DIR="gen"
+protoc --plugin=protoc-gen-nanopb=$COMPILED_NANOPB_DIR/generator/protoc-gen-nanopb --nanopb_out=$OUTPUT_DIR protoSchema/telemMesg.proto
+
+//Alternate
+nanopb-0.3.9-linux-x86/generator-bin/protoc --nanopb_out=. protoSchema/telemMesg.proto
+*/
