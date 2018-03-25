@@ -5,6 +5,8 @@
 #include <i2c_driver.h>
 #include <MS5607I2C.h>
 #include "SDBlockDevice.h"
+#include "FATFileSystem.h"
+
 
 DigitalOut led1(LED1);
 
@@ -15,54 +17,17 @@ DigitalOut led1(LED1);
 //     SCLK (Serial Clock)
 //     CS (Chip Select)
 SDBlockDevice sd(SPI_MOSI, SPI_MISO, SPI_SCK, SPI_CS);
-uint8_t block[512] = "Hello World!\n";
 
-int sdTest()
-{
-	// call the SDBlockDevice instance initialisation method.
-	if ( 0 != sd.init()) {
-		printf("Init failed \n");
-		return -1;
-	}
-	printf("sd size: %llu\n",         sd.size());
-	printf("sd read size: %llu\n",    sd.get_read_size());
-	printf("sd program size: %llu\n", sd.get_program_size());
-	printf("sd erase size: %llu\n",   sd.get_erase_size());
+static const char* sdSensorDataPath = "/sd/sensorData.txt";
+static const char* sdMountPt = "sd";
+FATFileSystem fs(sdMountPt, &sd);
 
-	// set the frequency
-	if ( 0 != sd.frequency(5000000)) {
-		printf("Error setting frequency \n");
-	}
-
-	if ( 0 != sd.erase(0, sd.get_erase_size())) {
-		printf("Error Erasing block \n");
-	}
-
-	// Write some the data block to the device
-	if ( 0 == sd.program(block, 0, 512)) {
-
-		uint8_t readBuf[512];
-		// read the data block from the device
-		if ( 0 == sd.read(readBuf, 0, 512)) {
-			// print the contents of the block
-			printf("%s", readBuf);
-		}
-	}
-
-	// call the SDBlockDevice instance de-initialisation method.
-	sd.deinit();
-	return 0;
-}
-
-int main(void)
-{
+int main(void) {
     float p = 0;
     float t = 0;
     int16_t x = 0;
     int16_t y = 0;
     int16_t z = 0;
-
-    sdTest();
 
     MS5607I2C ms5607(I2C_SDA, I2C_SCL, true);
 
@@ -76,8 +41,15 @@ int main(void)
         wait(SHARETEST_INTERVAL);
     }
 
+    //append sensor data
+    FILE* f = fopen(sdSensorDataPath, "a");
+    while (f == NULL) {
+        printf("ERROR: sd initialization failed :(\r\n");
+        wait(SHARETEST_INTERVAL);
+        f = fopen(sdSensorDataPath, "a");
+    }
 
-	while (1) {
+    while (true) {
         led1 = !led1;
         wait(SHARETEST_INTERVAL);
 
@@ -85,6 +57,7 @@ int main(void)
             printf("ERROR: barometer get compensated values failed :(\r\n");
         } else {
             printf("Pressure: %.2f Temperature: %.2f\r\n", p, t);
+            fprintf(f, "p: %.2f t: %.2f\n", p, t); //log to sd
         }
         /*ALT DRIVER*/
         // printf("ALT DRIVER - ");
@@ -96,6 +69,7 @@ int main(void)
             printf("ERROR: accelerometer get data failed :(\r\n");
         } else {
             printf("X: %" PRId16 " Y: %" PRId16 " Z: %" PRId16 "\r\n", x, y, z);
+            fprintf(f, "X: %" PRId16 " Y: %" PRId16 " Z: %" PRId16 "\r\n", x, y, z); //log to sd
         }
     }
 }

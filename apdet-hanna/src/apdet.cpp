@@ -1,29 +1,19 @@
 /*
 Hardware-independent functions.
 */
+#include "mbed.h"
 #include <i2c_driver.h>
 #include <general.h>
 #include <math.h>
+#include "SDBlockDevice.h"
+#include "FATFileSystem.h"
+#include <apdet.h>
 
-/* CONSTANTS ================================================================================================ */
+/* STATIC VARS ============================================================================================== */
 
-#define SIM_LAUNCH_ACCEL               40  /* 40 is old value, ask Ollie assuming sims are accurat */
-                                           /* should be accel of least accelerating rocket */
-#define SIM_BURNOUT_ACCEL_DELTA         4  /* 4s till burnout (data is pretty trash during powered ascent) */
-#define ACCEL_NEAR_APOGEE		     0.15  /* accel <= 0.15g indicates we are close to apogee */
+Timer timer;
 
-#define NUM_CHECKS                      5  /* each condition has to pass 5 times */
-#define NUM_WRITE_ATTEMPTS              5  /* 5 is temp value, tbd from testing */
-
-#define LOCN_ALT                        0  /* TODO */
-
-#define P_0                       1013.25  /* pressure at 0 altitude (mb) */
-#define T_0                        288.15  /* temperature at 0 altitude (K) */
-#define L                         -0.0065  /* lapse rate (valid for heights between 0km and 11km) (K/m) */
-#define R                         287.053  /* gas constant for air (J/(kg K))*/
-#define g                         9.80665  /* gravitational acceleration (m/s^2) */
-
-/* DRIVERS ================================================================================================== */
+/* ACTUATORS ================================================================================================ */
 
 /**
   * @brief  Drogue deployment driver.
@@ -31,7 +21,12 @@ Hardware-independent functions.
   */
 extern status_t deployDrogue()
 {
-    /* TODO */
+    /* TODO: Actuator */
+    /* Logging */
+    int timestamp = timer.read_ms();
+    FILE *pFile = fopen(logPath, "a");
+    fprintf(pFile, "[%d] Drogue deployed but not really.\n", timestamp);
+    fclose(pFile);
     return STATUS_OK;
 }
 
@@ -41,7 +36,12 @@ extern status_t deployDrogue()
   */
 extern status_t deployPayload()
 {
-    /* TODO */
+    /* TODO: Actuator */
+    /* Logging */
+    int timestamp = timer.read_ms();
+    FILE *pFile = fopen(logPath, "a");
+    fprintf(pFile, "[%d] Payload deployed but not really.\n", timestamp);
+    fclose(pFile);
     return STATUS_OK;
 }
 
@@ -51,90 +51,218 @@ extern status_t deployPayload()
   */
 extern status_t deployMain()
 {
-    /* TODO */
+    /* TODO: Actuator */
+    /* Logging */
+    int timestamp = timer.read_ms();
+    FILE *pFile = fopen(logPath, "a");
+    fprintf(pFile, "[%d] Main deployed but not really.\n", timestamp);
+    fclose(pFile);
     return STATUS_OK;
 }
 
 /* STATIC HELPER FUNCTIONS ================================================================================== */
 
 /**
-  * @brief  Altitude calculator.
+  * @brief  Computes altitude based on pressure.
   * @param  curr_pres   The current pressure.
   * @param  alt         A pointer to store the current altitude IN METERS.
   * @return Status
   */
-extern status_t calcAlt(int32_t *curr_pres, int32_t *alt)
+extern status_t calcAlt(float curr_pres, float *alt)
 {
-    *alt = (T_0/L) * (pow((*curr_pres/P_0),(-L*R/g)) - 1);
-
+    *alt = (T_0/L) * (pow((curr_pres/P_0),(-L*R/g)) - 1);
     return STATUS_OK;
 }
 
 /**
-  * @brief  Height above ground (base altitude) calculator.
+  * @brief  Computes height above ground relative to base altitude.
   * @param  curr_pres   The current pressure.
   * @param  base_alt    The base altitude.
   * @param  height      A pointer to store the current height IN METERS.
   * @return Status
   */
-extern status_t calcHeight(int32_t *curr_pres, int32_t *base_alt, int32_t *height)
+extern status_t calcHeight(float curr_pres, float base_alt, float *height)
 {
-    int32_t *curr_alt;
-    calcAlt(curr_pres, curr_alt);
-    *height = *curr_alt - *base_alt;
+    /* Height calculation */
+    float curr_alt;
+    calcAlt(curr_pres, &curr_alt);
+    *height = curr_alt - base_alt;
 
+    /* Logging */
+    int timestamp = timer.read_ms();
+    FILE *pFile = fopen(logPath, "a");
+    fprintf(pFile, "[%d] [Height] %0.4f \n", timestamp, *height);
+    fclose(pFile);
     return STATUS_OK;
 }
 
-extern status_t convertToFeet(int32_t *height_in_ft, int32_t *height_in_m)
+extern status_t convertToFeet(float height_in_m, float *height_in_ft)
 {
-	*height_in_ft = (*height_in_m) * 3.28084;
-	return STATUS_OK
+	*height_in_ft = height_in_m * 3.28084;
+    return STATUS_OK;
 }
 
 /**
-  * @brief  Returns acceleration magnitude.
+  * @brief  Computes acceleration magnitude.
   * @param  accel_x     The x-component of the acceleration.
   * @param  accel_y     The y-component of the acceleration.
   * @param  accel_z     The z-component of the acceleration.
   * @param  accel       A pointer to store the magnitude of the acceleration.
   * @return Status
   */
-extern status_t accelMagnitude(int16_t *accel, int16_t *accel_x, int16_t *accel_y, int16_t *accel_z)
+extern status_t accelMagnitude(int16_t accel_x, int16_t accel_y, int16_t accel_z, int16_t *accel)
 {
-	*accel = sqrt(pow(*accel_x,2)+pow(*accel_y,2)+pow(*accel_z,2));
-
-	return STATUS_OK;
+	*accel = sqrt((accel_x * accel_x) + (accel_y * accel_y) + (accel_z * accel_z));
+    return STATUS_OK;
 }
+
+
+extern status_t accelerometerGetAndLog(int16_t *accel_x, int16_t *accel_y, int16_t *accel_z)
+{
+    /* Query data from accelerometer */
+    status_t retval = accelerometerGetData(accel_x, accel_y, accel_z);
+    if (retval != STATUS_OK) {
+        return retval;
+    }
+
+    /* Logging */
+    int timestamp = timer.read_ms();
+    FILE *pFile = fopen(logPath, "a");
+    fprintf(pFile, "[%d][Accelerometer] X: %d Y: %d Z: %d \n", timestamp, *accel_x, *accel_y, *accel_z);
+    fclose(pFile);
+
+    return STATUS_OK;
+}
+
+extern status_t barometerGetAndLog(float *curr_pres) 
+{
+    /* Query data from barometer */
+    status_t retval = barometerGetCompensatedPressure(curr_pres);
+    if (retval != STATUS_OK) {
+        return retval;
+    }
+
+    /* Logging */
+    int timestamp = timer.read_ms();
+    FILE *pFile = fopen(logPath, "a");
+    fprintf(pFile, "[%d] [Barometer] Pres: %.4f \n", timestamp, *curr_pres);
+    fclose(pFile);
+
+    return STATUS_OK;
+}
+
+extern status_t barometerGetPresTempAndLog(float *curr_pres, float *curr_temp) 
+{
+    /* Query data from barometer */
+    status_t retval = barometerGetCompensatedValues(curr_pres, curr_temp);
+    if (retval != STATUS_OK) {
+        return retval;
+    }
+
+    /* Logging */
+    int timestamp = timer.read_ms();
+    FILE *pFile = fopen(logPath, "a");
+    fprintf(pFile, "[%d] [Barometer] Pres: %.4f Temp: %.4f \n", timestamp, *curr_pres, *curr_temp);
+    fclose(pFile);
+
+    return STATUS_OK;
+}
+
+extern status_t changeState(state_t state, state_t *curr_state) 
+{
+    /* Change the state */
+    *curr_state = state;
+    int8_t buffer[] = { (int8_t)state };
+    FILE *pFile = fopen(sdCurrStatePath, "w");
+    fseek(pFile, 0, SEEK_SET);
+    fwrite(buffer, sizeof(int8_t), sizeof(buffer), pFile);
+    fclose(pFile);
+
+    /* Logging */
+    int timestamp = timer.read_ms();
+    pFile = fopen(logPath, "a");
+    fprintf(pFile, "[%d] [State Change] %d\n", timestamp, (int8_t)state);
+    fclose(pFile);
+    return STATUS_OK;
+}
+
+extern status_t writeBaseVars(float base_pres, float base_temp, float base_alt) 
+{
+    float buffer[] = {base_pres, base_temp, base_alt};
+    FILE *pFile = fopen(sdBaseVarsPath, "w");
+    fseek(pFile, 0, SEEK_SET);
+    fwrite(buffer, sizeof(float), sizeof(buffer), pFile);
+    fclose(pFile);
+    return STATUS_OK;
+}
+
+extern status_t recoverLastState(state_t *curr_state)
+{
+    int8_t buf[1];
+    FILE *pFile = fopen(sdCurrStatePath, "r");
+    fseek(pFile, 0, SEEK_SET);
+    fread(buf, sizeof(int8_t), sizeof(buf), pFile);
+    *curr_state = (state_t)buf[0];
+    fclose(pFile);
+    return STATUS_OK;
+}
+
+extern status_t recoverBaseVars(float *base_pres, float *base_temp, float *base_alt) 
+{
+    float buf[3];
+    FILE *pFile = fopen(sdCurrStatePath, "r");
+    fread(buf, sizeof(float), sizeof(buf), pFile);
+    *base_pres = buf[0];
+    *base_temp = buf[1];
+    *base_alt = buf[2];
+    fclose(pFile);
+    return STATUS_OK;
+}
+
+extern status_t recoverAll(state_t *curr_state, float *base_pres, float *base_temp, float *base_alt) 
+{
+    recoverLastState(curr_state);
+    recoverBaseVars(base_pres, base_temp, base_alt);
+    return STATUS_OK;
+}
+
+extern int sumArrElems(int arr[], int n)
+{
+    int sum = 0;
+    for (int i = 0; i < n; i++) {
+        sum += arr[i];
+    }
+    return sum;
+}
+
 
 /* ROCKET FLIGHT STATE TRANSITION DETECTION FUNCTIONS ======================================================= */
 
 /* 
 TODO LIST
-- Check units:
-    - height in m vs ft
-    - accel in m/s^2 vs g
-- Stop getting data from barometer and accelerometer at certain points:
-    - payload deployment
-    - sonic boom?
-- Incorporate data filtering?
+- Incorporate Kalman data filtering?
+- Make sure a program clears the SD card / base variable file before every flight BUT NOT AFTER A BLACKOUT
+- Documentation updates
+- Get accelerometer log to find maximum variation of the accelerometer at standby
+- Comments in main
+- Try to move gets into while before the switch statement for logging purposes
+- Find out how long it takes for pressure to normalize in the rocket (waits)
+- Wait after main deployment or nah
 */
 
 /**
   * @brief  Returns true if rocket is in standby (otherwise assume blackout occured).
   * @param  accel       The current magnitude of the acceleration.
   * @param  curr_pres   The current pressure (if in standby, this will be the base pressure).
-  * @param  curr_pres   The current temperature (if in standby, this will be the base temperature).
+  * @param  curr_temp   The current temperature (if in standby, this will be the base temperature).
   * @param  curr_alt    The current altitude (if in standby, this will be the base altitude).
   * @return Boolean
   */
-static bool testStandby(int16_t *accel, int32_t *curr_pres, int32_t *curr_temp, int32_t *curr_alt)
+static bool testStandby(int16_t accel, float curr_pres, float curr_temp, float curr_alt)
 {
-    barometerGetCompensatedValues(curr_pres, curr_temp);
-    calcAlt(curr_pres, curr_alt);
-    bool standby_accel = (*accel == 0); /* TODO: error bound? */
-    bool standby_alt = (*curr_alt == LOCN_ALT); /* TODO: error bound? */
-    return (standby_alt && standby_accel);
+    bool standby_accel = (fabs(accel - 1000) <= STBY_ACCEL_EPSILON);
+    bool standby_alt = (fabs(curr_alt - LOCN_ALT) <= MIN_APOGEE_DEPLOY); /* In case we launch on a hill */
+    return (standby_accel && standby_alt);
 }
 
 /** 
@@ -142,9 +270,9 @@ static bool testStandby(int16_t *accel, int32_t *curr_pres, int32_t *curr_temp, 
   * @param  accel       The current magnitude of the acceleration.
   * @return Boolean
   */
-static bool detectLaunch(int16_t *accel)
+static bool detectLaunch(int16_t accel)
 {
-    return (*accel >= SIM_LAUNCH_ACCEL);
+    return (accel >= LAUNCH_ACCEL);
 }
 
 /** 
@@ -152,11 +280,16 @@ static bool detectLaunch(int16_t *accel)
   * @param  accel       The current magnitude of the acceleration.
   * @return Boolean
   */
-static bool detectBurnout(int16_t *accel)
+static bool detectBurnout(int16_t *prev_accel, int16_t accel)
 {
-    /* Involve time to double check / as a backup? Check reasonable altitude?
-    Data may not be stable at this point */
-    return (*accel <= 0);
+    /* 
+    Barometer data is probably not be stable at this point.
+    TODO: Accelerometer data may not be either. In that case, we'll just wait ~4s for burnout.
+     (depends on rocket though)
+     */
+    bool burnout = (accel <= *prev_accel);
+    *prev_accel = accel;
+    return burnout;
 }
 
 /** 
@@ -164,10 +297,12 @@ static bool detectBurnout(int16_t *accel)
   * @param  accel       The current magnitude of the acceleration.
   * @return Boolean
   */
-static bool nearingApogee(int16_t *accel)
+static bool nearingApogee(int16_t accel, float base_alt, float curr_pres)
 {
-    /* Add altitude or time backup? */
-    return (*accel <= ACCEL_NEAR_APOGEE);
+    float height;
+    calcHeight(curr_pres, base_alt, &height);
+
+    return (accel <= ACCEL_NEAR_APOGEE && height > MIN_APOGEE_DEPLOY);
 }
 
 /** 
@@ -177,30 +312,30 @@ static bool nearingApogee(int16_t *accel)
   * @param  height      The last recorded height.
   * @return Boolean
   */
-static bool testApogee(int32_t *base_alt, int32_t *curr_pres, int32_t *height)
+static bool testApogee(float base_alt, float curr_pres, float *height)
 {
-    /* check that acceleration is 0 or positive downwards (acc >= 0 ) too? */
 
-    int32_t *prev_height = *height;
+    float prev_height = *height;
     calcHeight(curr_pres, base_alt, height);
 
-    return (*height <= *prev_height);
+    return ((*height - prev_height) <= 0);
 }
 
 /** 
-  * @brief  Verifies that rocket's height <= 3000 ft.
+  * @brief  Verifies that rocket's height <= MAIN_DEPLOY_HEIGHT ft.
   * @param  base_alt    The base altitude.
   * @param  curr_pres   The current pressure.
   * @param  height      The current height.
   * @return Boolean
   */
-static bool detectMainAlt(int32_t *base_alt, int32_t *curr_pres, int32_t *height)
+static bool detectMainAlt(float base_alt, float curr_pres)
 {
-    calcHeight(curr_pres, base_alt, height);
-    int32_t height_in_ft;
-    convertToFeet(&height_in_ft, height);
+    float height;
+    calcHeight(curr_pres, base_alt, &height);
+    float height_in_ft;
+    convertToFeet(height, &height_in_ft);
 
-    return (height_in_ft <= 3000);
+    return (height_in_ft <= MAIN_DEPLOY_HEIGHT);
 }
 
 /** 
@@ -210,12 +345,12 @@ static bool detectMainAlt(int32_t *base_alt, int32_t *curr_pres, int32_t *height
   * @param  height      The last recorded height.
   * @return Boolean
   */
-static bool detectLanded(int32_t *base_alt, int32_t *curr_pres, int32_t *height)
+static bool detectLanded(float base_alt, float curr_pres, float *height)
 {
-    *prev_height = *height
+    float prev_height = *height;
     calcHeight(curr_pres, base_alt, height);
 
-    return (*height == *prev_height);
+    return (fabs(*height - prev_height) <= EPSILON);
 }
 
 
@@ -230,212 +365,257 @@ int main()
     status_t retval;
 
     do {
-        retval = i2cInit();
-    } while (retval != STATUS_OK);
-
-    do {
         retval = barometerInit();
     } while (retval != STATUS_OK);
     
     do {
         retval = accelerometerInit();
     } while (retval != STATUS_OK);
+    
+    SDBlockDevice sd(SPI_MOSI, SPI_MISO, SPI_SCK, SPI_CS);
+
+    int ret;
+
+    do {
+        ret = sd.init();
+    } while (ret != 0);
+    
+    FATFileSystem fs(sdMountPt, &sd);
 
     /* RECOVER IN CASE OF BLACKOUT */
-    int32_t base_pres;
-    int32_t base_temp;
-    int32_t base_alt;
+    float base_pres;
+    float base_temp;
+    float base_alt;
+
+    /* For detectBurnout function */
+    int16_t bo_det_accel  = 0;
 
     /* For testApogee function */
-    int32_t test_ap_height = 0;
+    float test_ap_height  = 0;
 
     /* For detectLanded function */
-    int32_t land_det_height = 0;
+    float land_det_height = 0;
     
     /* don't mind resetting these */
-    int reset_count = NUM_CHECKS;
-    int launch_count = NUM_CHECKS;
-    int burnout_count = NUM_CHECKS;
-    int coasting_count = NUM_CHECKS;
-    int apogee_count = NUM_CHECKS;
-    int main_count = NUM_CHECKS;
-    int land_count = NUM_CHECKS;
+    int launch_count_arr[ARR_SIZE];
+    int burnout_count_arr[ARR_SIZE];
+    int coasting_count_arr[ARR_SIZE];
+    int apogee_count_arr[ARR_SIZE];
+    int main_count_arr[ARR_SIZE];
+    int land_count_arr[ARR_SIZE];
 
-    state_t curr_state = APDET_STATE_TESTING; /* write to and read from flash memory */
+    /* is this too much setup in case of a blackout? */
+    memset(launch_count_arr,    '\0', ARR_SIZE);
+    memset(burnout_count_arr,   '\0', ARR_SIZE);
+    memset(coasting_count_arr,  '\0', ARR_SIZE);
+    memset(apogee_count_arr,    '\0', ARR_SIZE);
+    memset(main_count_arr,      '\0', ARR_SIZE);
+    memset(land_count_arr,      '\0', ARR_SIZE);
+
+    /* don't mind resetting these either*/
+    int launch_count_idx    = 0;
+    int burnout_count_idx   = 0;
+    int coasting_count_idx  = 0;
+    int apogee_count_idx    = 0;
+    int main_count_idx      = 0;
+    int land_count_idx      = 0;
+
+    state_t curr_state;
+    changeState(APDET_STATE_TESTING, &curr_state);
 
     while (1) {
+
+        int16_t accel, accel_x, accel_y, accel_z;
+        float curr_pres;
+
         switch(curr_state) {
             case APDET_STATE_TESTING:
-                int16_t accel_x, accel_y, accel_z;
-                status_t retval = accelerometerGetData(&accel_x, &accel_y, &accel_z);
-                if (retval != STATUS_OK) {
+                {
+                    /* TODO: location calbration with SD (check if space in memory is null) */
+                    /* Get acceleration */
+                    status_t retval = accelerometerGetAndLog(&accel_x, &accel_y, &accel_z);
+                    if (retval != STATUS_OK) {
+                        break;
+                    }
+                    accelMagnitude(accel_x, accel_y, accel_z, &accel);
+
+                    /* Get pressure and temperature */
+                    retval = barometerGetPresTempAndLog(&base_pres, &base_temp);
+                    if (retval != STATUS_OK) {
+                        break;
+                    }
+
+                    /* Calculate altitude */
+                    calcAlt(base_pres, &base_alt);
+                    if (testStandby(accel, base_pres, base_temp, base_alt)) {
+                        writeBaseVars(base_pres, base_temp, base_alt);
+                        changeState(APDET_STATE_STANDBY, &curr_state);
+                    } else {
+                        recoverAll(&curr_state, &base_pres, &base_temp, &base_alt);
+                    }
                     break;
                 }
-                int16_t accel;
-                retval = accelMagnitude(&accel, &accel_x, &accel_y, &accel_z);
-                if (retval != STATUS_OK) {
-                    break;
-                }
-                if (testStandby(&accel, &base_pres, &base_temp, &base_alt)) {
-                    /* TODO: Update/store base_pres, temp and alt in flash */
-                } else {
-                    /* TODO: Get them from flash memory (assume we already set them earlier) */
-                }
-                break;
 
             case APDET_STATE_STANDBY:
-                int16_t accel_x, accel_y, accel_z;
-                status_t retval = accelerometerGetData(&accel_x, &accel_y, &accel_z);
-                if (retval != STATUS_OK) {
-                    break;
-                }
-                int16_t accel;
-                retval = accelMagnitude(&accel, &accel_x, &accel_y, &accel_z);
-                if (retval != STATUS_OK) {
-                    break;
-                }
-                if (detectLaunch(&accel)) {
-                    launch_count--;
-                    if (launch_count <= 0) {
-                        curr_state = APDET_STATE_POWERED_ASCENT;
-                        /* TODO: Save state to flash memory */
-                        /* TODO: Write state to SD card using SPI */
+                {
+                    status_t retval = accelerometerGetAndLog(&accel_x, &accel_y, &accel_z);
+                    if (retval != STATUS_OK) {
+                        break;
                     }
-                } else {
-                    launch_count = NUM_CHECKS; /* ensures "in a row" */
+                    accelMagnitude(accel_x, accel_y, accel_z, &accel);
+
+
+                    if (detectLaunch(accel)) {
+                        launch_count_arr[launch_count_idx] = 1;
+                        launch_count_idx = (launch_count_idx + 1) % ARR_SIZE;
+                        if (sumArrElems(launch_count_arr, ARR_SIZE) >= NUM_CHECKS) {
+                            changeState(APDET_STATE_POWERED_ASCENT, &curr_state);
+                        }
+                    } else {
+                        launch_count_arr[launch_count_idx] = 0;
+                        launch_count_idx = (launch_count_idx + 1) % ARR_SIZE;
+                        //update base values
+                        retval = barometerGetPresTempAndLog(&base_pres, &base_temp);
+                        if (retval != STATUS_OK) {
+                            break;
+                        }
+                        calcAlt(base_pres, &base_alt);
+                        writeBaseVars(base_pres, base_temp, base_alt);
+                    }
+                    break;
                 }
-                break;
 
             case APDET_STATE_POWERED_ASCENT:
-                int16_t accel_x, accel_y, accel_z;
-                status_t retval = accelerometerGetData(&accel_x, &accel_y, &accel_z);
-                if (retval != STATUS_OK) {
-                    break;
-                }
-                int16_t accel;
-                retval = accelMagnitude(&accel, &accel_x, &accel_y, &accel_z);
-                if (retval != STATUS_OK) {
-                    break;
-                }
-                if (detectBurnout(&accel)) {
-                    burnout_count--;
-                    if (burnout_count <= 0) {
-                        curr_state = APDET_STATE_COASTING;
-                        /* TODO: Save state to flash memory */
-                        /* TODO: Write state to SD card using SPI */
+                {
+                    status_t retval = accelerometerGetAndLog(&accel_x, &accel_y, &accel_z);
+                    if (retval != STATUS_OK) {
+                        break;
                     }
-                } else {
-                    burnout_count = NUM_CHECKS;
+                    accelMagnitude(accel_x, accel_y, accel_z, &accel);
+                    if (detectBurnout(&bo_det_accel, accel)) {
+                        burnout_count_arr[burnout_count_idx] = 1;
+                        if (sumArrElems(burnout_count_arr, ARR_SIZE) >= NUM_CHECKS) {
+                            changeState(APDET_STATE_COASTING, &curr_state);
+                        }
+                    } else {
+                        burnout_count_arr[burnout_count_idx] = 0;
+                    }
+                    burnout_count_idx = (burnout_count_idx + 1) % ARR_SIZE;
+                    break;
                 }
-                break;
 
             case APDET_STATE_COASTING:
-                int16_t accel_x, accel_y, accel_z;
-                retval = accelerometerGetData(&accel_x, &accel_y, &accel_z);
-                if (retval != STATUS_OK) {
-                    break;
-                }
-                int16_t accel;
-                retval = accelMagnitude(&accel, &accel_x, &accel_y, &accel_z);
-                if (retval != STATUS_OK) {
-                    break;
-                }
-                if (nearingApogee(&accel)) {
-                    coasting_count--;
-                    if (coasting_count <= 0) {
-                        curr_state = APDET_STATE_APOGEE_TESTING;
-                        /* TODO: Save state to flash memory */
-                        /* TODO: Write state to SD card using SPI */
+                {
+                    retval = accelerometerGetAndLog(&accel_x, &accel_y, &accel_z);
+                    if (retval != STATUS_OK) {
+                        break;
                     }
-                } else {
-                    coasting_count = NUM_CHECKS;
+                    accelMagnitude(accel_x, accel_y, accel_z, &accel);
+                    status_t retval = barometerGetAndLog(&curr_pres);
+                    if (retval != STATUS_OK) {
+                        break;
+                    }
+                    if (nearingApogee(accel, base_alt, curr_pres)) {
+                        coasting_count_arr[coasting_count_idx] = 1;
+                        if (sumArrElems(coasting_count_arr, ARR_SIZE) >= NUM_CHECKS) {
+                            changeState(APDET_STATE_APOGEE_TESTING, &curr_state);
+                        }
+                    } else {
+                        coasting_count_arr[coasting_count_idx] = 0;
+                    }
+                    coasting_count_idx = (coasting_count_idx + 1) % ARR_SIZE;
+                    break;
                 }
-                break;
 
             case APDET_STATE_APOGEE_TESTING:
-                int32_t curr_pres;
-                status_t retval = barometerGetCompensatedPressure(&curr_pres);
-                if (retval != STATUS_OK) {
+                {
+                    status_t retval = barometerGetAndLog(&curr_pres);
+                    if (retval != STATUS_OK) {
+                        break;
+                    }
+                    if (testApogee(base_alt, curr_pres, &test_ap_height)) {
+                        apogee_count_arr[apogee_count_idx] = 1;
+                        if (sumArrElems(apogee_count_arr, ARR_SIZE) >= NUM_CHECKS) {
+                            changeState(APDET_STATE_DEPLOY_DROGUE, &curr_state);
+                        }
+                    } else {
+                        apogee_count_arr[apogee_count_idx] = 0;
+                    }
+                    apogee_count_idx = (apogee_count_idx + 1) % ARR_SIZE;
                     break;
                 }
-                if (testApogee(&base_alt, &curr_pres, &test_ap_height)) {
-                    apogee_count--;
-                    if (apogee_count <= 0) {
-                        curr_state = APDET_STATE_DEPLOY_DROGUE;
-                        /* TODO: Save state to flash memory */
-                        /* TODO: Write state to SD card using SPI */
-                    }
-                } else {
-                    apogee_count = NUM_CHECKS;
-                }
-                break;
 
             case APDET_STATE_DEPLOY_DROGUE:
-                deploy_drogue();
-                curr_state = APDET_STATE_DEPLOY_PAYLOAD;
-                /* TODO: Save state to flash memory */
-                /* TODO: Write state to SD card using SPI */
-                delay(3); /* ^ in case blackout occurs here */
-                break;
+                {
+                    deployDrogue();
+                    wait_ms(POST_DROGUE_DEPLOYMENT_PAUSE);
+                    changeState(APDET_STATE_DEPLOY_PAYLOAD, &curr_state);
+                    break;
+                }
 
             case APDET_STATE_DEPLOY_PAYLOAD:
-                deploy_payload();
-                curr_state = APDET_STATE_INITIAL_DESCENT;
-                /* TODO: Save state to flash memory */
-                /* TODO: Write state to SD card using SPI */
-                break;
+                {
+                    deployPayload();
+                    changeState(APDET_STATE_INITIAL_DESCENT, &curr_state);
+                    wait_ms(PRESSURE_NORMALIZATION_PAUSE);
+                    break;
+                }
 
             case APDET_STATE_INITIAL_DESCENT:
-                int32_t curr_pres;
-                int32_t height = 0;
-                status_t retval = barometerGetCompensatedPressure(&curr_pres);
-                if (retval != STATUS_OK) {
+                {
+                    status_t retval = barometerGetAndLog(&curr_pres);
+                    if (retval != STATUS_OK) {
+                        break;
+                    }
+                    if (detectMainAlt(base_alt, curr_pres)) {
+                        main_count_arr[main_count_idx] = 1;
+                        if (sumArrElems(main_count_arr, ARR_SIZE) >= NUM_CHECKS) {
+                            changeState(APDET_STATE_DEPLOY_MAIN, &curr_state);
+                        }
+                    } else {
+                        main_count_arr[main_count_idx] = 0;
+                    }
+                    main_count_idx = (main_count_idx + 1) % ARR_SIZE;
                     break;
                 }
-                if (detectMainAlt(&base_alt, &curr_pres, &height)) {
-                    main_count--;
-                    if (main_count <= 0) {
-                        curr_state = APDET_STATE_DEPLOY_MAIN;
-                        /* TODO: Save state to flash memory */
-                        /* TODO: Write state to SD card using SPI */
-                    }
-                } else {
-                    main_count = NUM_CHECKS;
-                }
-                break;
 
             case APDET_STATE_DEPLOY_MAIN:
-                deploy_main();
-                curr_state = APDET_STATE_FINAL_DESCENT;
-                /* TODO: Save state to flash memory */
-                /* TODO: Write state to SD card using SPI */
-                break;
-
-            case APDET_STATE_FINAL_DESCENT:
-                int32_t curr_pres;
-                status_t retval = barometerGetCompensatedPressure(&curr_pres);
-                if (retval != STATUS_OK) {
+                {
+                    deployMain();
+                    changeState(APDET_STATE_FINAL_DESCENT, &curr_state);
                     break;
                 }
-                if (detectLanded(&base_alt, &curr_pres, &land_det_height)){
-                    land_count--;
-                    if (land_count <= 0) {
-                        curr_state = APDET_STATE_LANDED
-                        /* TODO: Save state to flash memory */
-                        /* TODO: Write state to SD card using SPI */
+
+            case APDET_STATE_FINAL_DESCENT:
+                {
+                    status_t retval = barometerGetAndLog(&curr_pres);
+                    if (retval != STATUS_OK) {
+                        break;
                     }
-                } else {
-                    land_count = NUM_CHECKS;
+                    if (detectLanded(base_alt, curr_pres, &land_det_height)){
+                        land_count_arr[land_count_idx] = 1;
+                        if (sumArrElems(land_count_arr, ARR_SIZE) >= NUM_CHECKS) {
+                            changeState(APDET_STATE_LANDED, &curr_state);
+                        }
+                    } else {
+                        land_count_arr[land_count_idx] = 0;
+                    }
+                    land_count_idx = (land_count_idx + 1) % ARR_SIZE;
+                    break;
                 }
-                break;
 
             case APDET_STATE_LANDED:
-                /* LANDED STATE */
-                break;
+                {
+                    /* LANDED STATE */
+                    break;
+                }
 
             default:
-            	/* ERROR STATE */
-            	break;
+                {
+                    /* ERROR STATE */
+                    break;
+                }
+                
         }
     }
 
