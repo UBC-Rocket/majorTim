@@ -2,9 +2,7 @@
 Hardware-independent functions from telem.h
 */
 
-//TODO stub out algorithms needed for testing telem board
 #include <stdio.h>
-#include "shared/utils.h" //for tsprintf
 #include "telem.h"
 
 //const pb_field_t AMessage_fields[3]; //fixme: not sure why includes are broken for makefile
