@@ -5,14 +5,14 @@ Hardware-independent functions from telem.h
 #include <stdio.h>
 #include "telem.h"
 
-//const pb_field_t AMessage_fields[3]; //fixme: not sure why includes are broken for makefile
+//const pb_field_t TelemMesg_fields[3]; //fixme: not sure why includes are broken for makefile
 
 /**
  * @brief sets the ith bit in validDataIndexes to track which sensors sent useful data (0 based)
  * @param telemData: struct used to store the received canbus data for protobuf
  * @param senderID: the id of the sensor that sent the data
  */
-void setValidIndex(AMessage* telemDataBuffer, int senderID) {
+void setValidIndex(TelemMesg* telemDataBuffer, int senderID) {
 	telemDataBuffer->validDataIndexes |= 1 << senderID;
 }
 
@@ -22,8 +22,8 @@ void setValidIndex(AMessage* telemDataBuffer, int senderID) {
  * @param telemData: struct used to store the received canbus data for protobuf
  * @return STATUS_OK if we receive data
  */
-status_t listenOnBus(AMessage* telemData) {
-	bzero(telemData, AMessage_size); //clear the buffer for reuse
+status_t listenOnBus(TelemMesg* telemData) {
+	bzero(telemData, TelemMesg_size); //clear the buffer for reuse
 	for (int i = 0; i < LISTEN_QUANTUM; i++) {
 		int senderID;
 		canbus_t sensorReading;
@@ -53,9 +53,9 @@ status_t listenOnBus(AMessage* telemData) {
  * @param data: the input data struct to convert into a protobuf payload
  * @return Status code
  */
-status_t pbPackage(pb_byte_t* targetBuffer, pb_ostream_t* stream, size_t targetBufferSize, AMessage* data) {
+status_t pbPackage(pb_byte_t* targetBuffer, pb_ostream_t* stream, size_t targetBufferSize, TelemMesg* data) {
 	*stream = pb_ostream_from_buffer(targetBuffer, targetBufferSize);
-	bool status = pb_encode(stream, AMessage_fields, data);
+	bool status = pb_encode(stream, TelemMesg_fields, data);
 	if (!status) {
 		tsprintf("Encoding failed: %s\n", PB_GET_ERROR(stream));
 		return STATUS_ERROR;
@@ -75,15 +75,15 @@ int main() {
 
 	while (true) { //main loop to receive and send data
 		//get raw canbus data
-		AMessage data = AMessage_init_default;
+		TelemMesg data = TelemMesg_init_default;
 		if (listenOnBus(&data) != STATUS_OK) {
 			tsprintf("Error listening on bus\n");
 		}
 
-		pb_byte_t pbBuf[AMessage_size]; // Buffer to store serialized data
+		pb_byte_t pbBuf[TelemMesg_size]; // Buffer to store serialized data
 		pb_ostream_t stream; //stream to send to our recipient
 
-		if (pbPackage(pbBuf, &stream, AMessage_size, &data) != STATUS_OK) {
+		if (pbPackage(pbBuf, &stream, TelemMesg_size, &data) != STATUS_OK) {
 			tsprintf("Error packaging into protobuf\n");
 		}
 

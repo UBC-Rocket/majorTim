@@ -5,12 +5,6 @@ Mock implementation of Telemetry board hardware-dependent functions
 #include <general.h>
 #include <telem.h>
 
-#include <shared/utils.h>
-#include <shared/init.h>
-#include <shared/can.h>
-#include <shared/sd.h>
-
-
 char socket_path[] = "\0hidden";
 struct sockaddr_un addr;
 int fd; //file descriptor for sending data through unix sockets to receiver
@@ -69,7 +63,7 @@ status_t canListen(int* id, canbus_t* canbusData) {
 }
 
 
-status_t pbSend(pb_ostream_t* stream, pb_byte_t buffer[AMessage_size]) {
+status_t pbSend(pb_ostream_t* stream, pb_byte_t buffer[TelemMsg_size]) {
 	printf("\nSending %lu bytes of payload: ", stream->bytes_written);
 	fwrite(buffer, stream->bytes_written, 1, stdout); // Write to stdout raw bytes(printf stops on null byte)
 
