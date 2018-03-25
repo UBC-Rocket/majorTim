@@ -9,4 +9,4 @@
 # On the other hand, using the callback interface, it is not necessary
 # to set a limit on the number of files in the response.
 
-TelemMsg.data	max_count:16
+TelemMesg.data	max_count:16

@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-message TelemMsg {
+message TelemMesg {
 //note: all fields are optional by default
 	int64 timestamp = 1; //unix uses int64 time usually
 	repeated double data = 2;

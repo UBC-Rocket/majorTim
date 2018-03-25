@@ -32,10 +32,10 @@ extern int main(void);
 status_t telemInit();
 
 
-status_t listenOnBus(TelemMsg* telemDataBuffer);
+status_t listenOnBus(TelemMesg* telemDataBuffer);
 
-status_t pbPackage(pb_byte_t* targetBuffer, pb_ostream_t* stream, size_t targetBufferSize, TelemMsg* data);
+status_t pbPackage(pb_byte_t* targetBuffer, pb_ostream_t* stream, size_t targetBufferSize, TelemMesg* data);
 
-status_t pbSend(pb_ostream_t* stream, pb_byte_t buffer[TelemMsg_size]);
+status_t pbSend(pb_ostream_t* stream, pb_byte_t buffer[TelemMesg_size]);
 
 #endif

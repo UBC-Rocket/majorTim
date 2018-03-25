@@ -3,7 +3,11 @@ Hardware-independent functions from telem.h
 */
 
 #include <stdio.h>
+#include <time.h>
+#include "general.h"
 #include "telem.h"
+#include "telemMesg.pb.h"
+
 
 //const pb_field_t TelemMesg_fields[3]; //fixme: not sure why includes are broken for makefile
 
@@ -22,7 +26,7 @@ void setValidIndex(TelemMesg* telemDataBuffer, int senderID) {
  * @param telemData: struct used to store the received canbus data for protobuf
  * @return STATUS_OK if we receive data
  */
-status_t listenOnBus(TelemMesg* telemData) {
+	status_t listenOnBus(TelemMesg* telemData) {
 	bzero(telemData, TelemMesg_size); //clear the buffer for reuse
 	for (int i = 0; i < LISTEN_QUANTUM; i++) {
 		int senderID;
@@ -37,9 +41,8 @@ status_t listenOnBus(TelemMesg* telemData) {
 		return STATUS_NO_DATA;
 	}
 
-	time_t time;
-	getTimeSec(&time);
-	telemData->timestamp = time;
+	time_t currentTime = time(NULL);
+	telemData->timestamp = currentTime;
 	telemData->data_count = sizeof(telemData->data) / sizeof(telemData->data[0]); //hard coded for now
 	return STATUS_OK;
 }
@@ -57,7 +60,7 @@ status_t pbPackage(pb_byte_t* targetBuffer, pb_ostream_t* stream, size_t targetB
 	*stream = pb_ostream_from_buffer(targetBuffer, targetBufferSize);
 	bool status = pb_encode(stream, TelemMesg_fields, data);
 	if (!status) {
-		tsprintf("Encoding failed: %s\n", PB_GET_ERROR(stream));
+		printf("Encoding failed: %s\n", PB_GET_ERROR(stream));
 		return STATUS_ERROR;
 	}
 
@@ -70,25 +73,25 @@ status_t pbPackage(pb_byte_t* targetBuffer, pb_ostream_t* stream, size_t targetB
  */
 int main() {
 	if (telemInit() != STATUS_OK) {
-		tsprintf("Error listening on bus\n");
+		printf("Error listening on bus\n");
 	}
 
 	while (true) { //main loop to receive and send data
 		//get raw canbus data
 		TelemMesg data = TelemMesg_init_default;
 		if (listenOnBus(&data) != STATUS_OK) {
-			tsprintf("Error listening on bus\n");
+			printf("Error listening on bus\n");
 		}
 
 		pb_byte_t pbBuf[TelemMesg_size]; // Buffer to store serialized data
 		pb_ostream_t stream; //stream to send to our recipient
 
 		if (pbPackage(pbBuf, &stream, TelemMesg_size, &data) != STATUS_OK) {
-			tsprintf("Error packaging into protobuf\n");
+			printf("Error packaging into protobuf\n");
 		}
 
 		if (pbSend(&stream, pbBuf) != STATUS_OK) {
-			tsprintf("Error sending protobuf payload \n");
+			printf("Error sending protobuf payload \n");
 		}
 
 //		printf("running\n");

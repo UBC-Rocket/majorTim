@@ -1,7 +1,7 @@
 /*
 Mock implementation of Telemetry board hardware-dependent functions
 */
-
+#include <stdio.h>
 #include <general.h>
 #include <telem.h>
 
@@ -12,10 +12,10 @@ int fd; //file descriptor for sending data through unix sockets to receiver
 // - do socket setup here
 status_t telemInit()
 {
-	tsprintf("telemInit called\n");
+	printf("telemInit called\n");
 	if(initSend(&fd, &addr) != STATUS_OK)
 	{
-		tsprintf("Error in telemInit\n");
+		printf("Error in telemInit\n");
 	}
 	return STATUS_OK;
 }
@@ -63,7 +63,7 @@ status_t canListen(int* id, canbus_t* canbusData) {
 }
 
 
-status_t pbSend(pb_ostream_t* stream, pb_byte_t buffer[TelemMsg_size]) {
+status_t pbSend(pb_ostream_t* stream, pb_byte_t buffer[TelemMesg_size]) {
 	printf("\nSending %lu bytes of payload: ", stream->bytes_written);
 	fwrite(buffer, stream->bytes_written, 1, stdout); // Write to stdout raw bytes(printf stops on null byte)
 
