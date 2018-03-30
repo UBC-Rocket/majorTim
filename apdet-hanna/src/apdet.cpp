@@ -294,7 +294,6 @@ TODO LIST
 - Try to move gets into while before the switch statement for logging purposes
 - Find out how long it takes for pressure to normalize in the rocket (waits)
 - Wait after main deployment or nah
-- Merge deploy drogue and deploy payload into one state
 - Refactor state transition functions using comparison with prev values
 */
 
