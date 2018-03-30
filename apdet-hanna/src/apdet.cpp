@@ -96,9 +96,15 @@ extern status_t calcHeight(float curr_pres, float base_alt, float *height)
     return STATUS_OK;
 }
 
+/**
+  * @brief  Computes height above ground relative to base altitude.
+  * @param  height_in_m   The current height in meters.
+  * @param  height_in_ft  A pointer to store the current height in feet.
+  * @return Status
+  */
 extern status_t convertToFeet(float height_in_m, float *height_in_ft)
 {
-	*height_in_ft = height_in_m * 3.28084;
+    *height_in_ft = height_in_m * 3.28084;
     return STATUS_OK;
 }
 
@@ -112,11 +118,17 @@ extern status_t convertToFeet(float height_in_m, float *height_in_ft)
   */
 extern status_t accelMagnitude(int16_t accel_x, int16_t accel_y, int16_t accel_z, int16_t *accel)
 {
-	*accel = sqrt((accel_x * accel_x) + (accel_y * accel_y) + (accel_z * accel_z));
+    *accel = sqrt((accel_x * accel_x) + (accel_y * accel_y) + (accel_z * accel_z));
     return STATUS_OK;
 }
 
-
+/**
+  * @brief  Queries and logs acceleration data from accelerometer.
+  * @param  accel_x     A pointer to store the x-component of the acceleration.
+  * @param  accel_y     A pointer to store the y-component of the acceleration.
+  * @param  accel_z     A pointer to store the z-component of the acceleration.
+  * @return Status
+  */
 extern status_t accelerometerGetAndLog(int16_t *accel_x, int16_t *accel_y, int16_t *accel_z)
 {
     /* Query data from accelerometer */
@@ -134,6 +146,11 @@ extern status_t accelerometerGetAndLog(int16_t *accel_x, int16_t *accel_y, int16
     return STATUS_OK;
 }
 
+/**
+  * @brief  Queries and logs pressure data from barometer.
+  * @param  curr_pres   A pointer to store the current pressure.
+  * @return Status
+  */
 extern status_t barometerGetAndLog(float *curr_pres) 
 {
     /* Query data from barometer */
@@ -151,6 +168,12 @@ extern status_t barometerGetAndLog(float *curr_pres)
     return STATUS_OK;
 }
 
+/**
+  * @brief  Queries and logs pressure and temperature data from barometer.
+  * @param  curr_pres   A pointer to store the current pressure.
+  * @param  curr_temp   A pointer to store the current temperature.
+  * @return Status
+  */
 extern status_t barometerGetPresTempAndLog(float *curr_pres, float *curr_temp) 
 {
     /* Query data from barometer */
@@ -168,6 +191,12 @@ extern status_t barometerGetPresTempAndLog(float *curr_pres, float *curr_temp)
     return STATUS_OK;
 }
 
+/**
+  * @brief  Changes state, writes current state to SD and logs state change.
+  * @param  state       The state being transitioned to.
+  * @param  curr_state  A pointer holding the current state.
+  * @return Status
+  */
 extern status_t changeState(state_t state, state_t *curr_state) 
 {
     /* Change the state */
@@ -186,6 +215,13 @@ extern status_t changeState(state_t state, state_t *curr_state)
     return STATUS_OK;
 }
 
+/**
+  * @brief  Writes base variables to SD.
+  * @param  base_pres   Pressure at launch site.
+  * @param  base_temp   Temperature at launch site.
+  * @param  base_alt    Launch site altitude.
+  * @return Status
+  */
 extern status_t writeBaseVars(float base_pres, float base_temp, float base_alt) 
 {
     float buffer[] = {base_pres, base_temp, base_alt};
@@ -196,6 +232,11 @@ extern status_t writeBaseVars(float base_pres, float base_temp, float base_alt)
     return STATUS_OK;
 }
 
+/**
+  * @brief  Recovers previous state from SD.
+  * @param  curr_state  Pointer holding the current state.
+  * @return Status
+  */
 extern status_t recoverLastState(state_t *curr_state)
 {
     int8_t buf[1];
@@ -207,6 +248,13 @@ extern status_t recoverLastState(state_t *curr_state)
     return STATUS_OK;
 }
 
+/**
+  * @brief  Recovers base variables from SD.
+  * @param  base_pres   Pointer holding the pressure at the launch site.
+  * @param  base_temp   Pointer holding the temperature at the launch site.
+  * @param  base_alt    Pointer holding the launch site's altitude.
+  * @return Status
+  */
 extern status_t recoverBaseVars(float *base_pres, float *base_temp, float *base_alt) 
 {
     float buf[3];
@@ -219,6 +267,14 @@ extern status_t recoverBaseVars(float *base_pres, float *base_temp, float *base_
     return STATUS_OK;
 }
 
+/**
+  * @brief  Recovers previous state and base variables from SD.
+  * @param  curr_state  Pointer holding the current state.
+  * @param  base_pres   Pointer holding the pressure at the launch site.
+  * @param  base_temp   Pointer holding the temperature at the launch site.
+  * @param  base_alt    Pointer holding the launch site's altitude.
+  * @return Status
+  */
 extern status_t recoverAll(state_t *curr_state, float *base_pres, float *base_temp, float *base_alt) 
 {
     recoverLastState(curr_state);
@@ -226,6 +282,12 @@ extern status_t recoverAll(state_t *curr_state, float *base_pres, float *base_te
     return STATUS_OK;
 }
 
+/**
+  * @brief  Sums the elements of an array
+  * @param  arr[]       Array of integers
+  * @param  n           Size of arr[]
+  * @return Sum
+  */
 extern int sumArrElems(int arr[], int n)
 {
     int sum = 0;
@@ -248,6 +310,8 @@ TODO LIST
 - Try to move gets into while before the switch statement for logging purposes
 - Find out how long it takes for pressure to normalize in the rocket (waits)
 - Wait after main deployment or nah
+- Merge deploy drogue and deploy payload into one state
+- Refactor state transition functions using comparison with prev values
 */
 
 /**
@@ -277,6 +341,7 @@ static bool detectLaunch(int16_t accel)
 
 /** 
   * @brief  Detects burnout.
+  * @param  prev_accel  The last recorded magnitude of acceleration.
   * @param  accel       The current magnitude of the acceleration.
   * @return Boolean
   */
@@ -295,6 +360,8 @@ static bool detectBurnout(int16_t *prev_accel, int16_t accel)
 /** 
   * @brief  Determines whether rocket is nearing apogee.
   * @param  accel       The current magnitude of the acceleration.
+  * @param  base_alt    The base altitude.
+  * @param  curr_pres   The current pressure.
   * @return Boolean
   */
 static bool nearingApogee(int16_t accel, float base_alt, float curr_pres)
@@ -325,7 +392,6 @@ static bool testApogee(float base_alt, float curr_pres, float *height)
   * @brief  Verifies that rocket's height <= MAIN_DEPLOY_HEIGHT ft.
   * @param  base_alt    The base altitude.
   * @param  curr_pres   The current pressure.
-  * @param  height      The current height.
   * @return Boolean
   */
 static bool detectMainAlt(float base_alt, float curr_pres)
@@ -339,7 +405,7 @@ static bool detectMainAlt(float base_alt, float curr_pres)
 }
 
 /** 
-  * @brief  Detects landing by checking that altitude delta = 0.
+  * @brief  Detects landing by checking that altitude delta ≈ 0.
   * @param  base_alt    The base altitude.
   * @param  curr_pres   The current pressure.
   * @param  height      The last recorded height.
@@ -445,9 +511,12 @@ int main()
                         break;
                     }
 
-                    /* Calculate altitude */
+                    /* Calculate base altitude */
                     calcAlt(base_pres, &base_alt);
+
                     if (testStandby(accel, base_pres, base_temp, base_alt)) {
+                        
+                        /* Update base values */
                         writeBaseVars(base_pres, base_temp, base_alt);
                         changeState(APDET_STATE_STANDBY, &curr_state);
                     } else {
@@ -458,12 +527,14 @@ int main()
 
             case APDET_STATE_STANDBY:
                 {
+                    /* Get acceleration */
                     status_t retval = accelerometerGetAndLog(&accel_x, &accel_y, &accel_z);
                     if (retval != STATUS_OK) {
                         break;
                     }
-                    accelMagnitude(accel_x, accel_y, accel_z, &accel);
 
+                    /* Calculate magnitude of acceleration */
+                    accelMagnitude(accel_x, accel_y, accel_z, &accel);
 
                     if (detectLaunch(accel)) {
                         launch_count_arr[launch_count_idx] = 1;
@@ -474,12 +545,17 @@ int main()
                     } else {
                         launch_count_arr[launch_count_idx] = 0;
                         launch_count_idx = (launch_count_idx + 1) % ARR_SIZE;
-                        //update base values
+
+                        /* Get pressure and temperature */
                         retval = barometerGetPresTempAndLog(&base_pres, &base_temp);
                         if (retval != STATUS_OK) {
                             break;
                         }
+
+                        /* Calculate base altitude */
                         calcAlt(base_pres, &base_alt);
+
+                        /* Update base values */
                         writeBaseVars(base_pres, base_temp, base_alt);
                     }
                     break;
