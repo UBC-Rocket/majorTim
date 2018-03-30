@@ -16,33 +16,17 @@ Timer timer;
 /* ACTUATORS ================================================================================================ */
 
 /**
-  * @brief  Drogue deployment driver.
+  * @brief  Drogue and payload deployment actuator.
   * @return Status
   */
-extern status_t deployDrogue()
+extern status_t deployDrogueAndPayload()
 {
     /* TODO: Actuator */
     /* Logging */
     int timestamp = timer.read_ms();
     FILE *pFile = fopen(logPath, "a");
-    fprintf(pFile, "[%d] Drogue deployed but not really.\n", timestamp);
+    fprintf(pFile, "[%d] Drogue and payload deployed but not really.\n", timestamp);
     fclose(pFile);
-    return STATUS_OK;
-}
-
-/**
-  * @brief  Payload deployment driver.
-  * @return Status
-  */
-extern status_t deployPayload()
-{
-    /* TODO: Actuator */
-    /* Logging */
-    int timestamp = timer.read_ms();
-    FILE *pFile = fopen(logPath, "a");
-    fprintf(pFile, "[%d] Payload deployed but not really.\n", timestamp);
-    fclose(pFile);
-    return STATUS_OK;
 }
 
 /**
@@ -515,7 +499,7 @@ int main()
                     calcAlt(base_pres, &base_alt);
 
                     if (testStandby(accel, base_pres, base_temp, base_alt)) {
-                        
+
                         /* Update base values */
                         writeBaseVars(base_pres, base_temp, base_alt);
                         changeState(APDET_STATE_STANDBY, &curr_state);
@@ -612,7 +596,7 @@ int main()
                     if (testApogee(base_alt, curr_pres, &test_ap_height)) {
                         apogee_count_arr[apogee_count_idx] = 1;
                         if (sumArrElems(apogee_count_arr, ARR_SIZE) >= NUM_CHECKS) {
-                            changeState(APDET_STATE_DEPLOY_DROGUE, &curr_state);
+                            changeState(APDET_STATE_DEPLOY_DROGUE_AND_PAYLOAD, &curr_state);
                         }
                     } else {
                         apogee_count_arr[apogee_count_idx] = 0;
@@ -621,17 +605,9 @@ int main()
                     break;
                 }
 
-            case APDET_STATE_DEPLOY_DROGUE:
+            case APDET_STATE_DEPLOY_DROGUE_AND_PAYLOAD:
                 {
-                    deployDrogue();
-                    wait_ms(POST_DROGUE_DEPLOYMENT_PAUSE);
-                    changeState(APDET_STATE_DEPLOY_PAYLOAD, &curr_state);
-                    break;
-                }
-
-            case APDET_STATE_DEPLOY_PAYLOAD:
-                {
-                    deployPayload();
+                    deployDrogueAndPayload();
                     changeState(APDET_STATE_INITIAL_DESCENT, &curr_state);
                     wait_ms(PRESSURE_NORMALIZATION_PAUSE);
                     break;
