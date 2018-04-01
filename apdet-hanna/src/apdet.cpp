@@ -454,12 +454,12 @@ int main()
     int land_count_arr[ARR_SIZE];
 
     /* is this too much setup in case of a blackout? */
-    memset(launch_count_arr,    '\0', ARR_SIZE);
-    memset(burnout_count_arr,   '\0', ARR_SIZE);
-    memset(coasting_count_arr,  '\0', ARR_SIZE);
-    memset(apogee_count_arr,    '\0', ARR_SIZE);
-    memset(main_count_arr,      '\0', ARR_SIZE);
-    memset(land_count_arr,      '\0', ARR_SIZE);
+    bzero(launch_count_arr,    sizeof(launch_count_arr));
+    bzero(burnout_count_arr,   sizeof(burnout_count_arr));
+    bzero(coasting_count_arr,  sizeof(coasting_count_arr));
+    bzero(apogee_count_arr,    sizeof(apogee_count_arr));
+    bzero(main_count_arr,      sizeof(main_count_arr));
+    bzero(land_count_arr,      sizeof(land_count_arr));
 
     /* don't mind resetting these either*/
     int launch_count_idx    = 0;
