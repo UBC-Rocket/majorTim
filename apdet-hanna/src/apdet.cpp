@@ -99,7 +99,7 @@ extern status_t calcHeight(float curr_pres, float base_alt, float *height)
 
 extern status_t convertToFeet(float height_in_m, float *height_in_ft)
 {
-    *height_in_ft = height_in_m * 3.28084;
+    *height_in_ft = height_in_m * 3.28084;
     return STATUS_OK;
 }
 
@@ -113,7 +113,7 @@ extern status_t convertToFeet(float height_in_m, float *height_in_ft)
   */
 extern status_t accelMagnitude(int16_t accel_x, int16_t accel_y, int16_t accel_z, int16_t *accel)
 {
-    *accel = sqrt((accel_x * accel_x) + (accel_y * accel_y) + (accel_z * accel_z));
+    *accel = sqrt((accel_x * accel_x) + (accel_y * accel_y) + (accel_z * accel_z));
     return STATUS_OK;
 }
 
