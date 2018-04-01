@@ -467,11 +467,13 @@ int main()
 
                     if (detectLaunch(accel)) {
                         launch_count_arr[launch_count_idx] = 1;
+                        launch_count_idx = (launch_count_idx + 1) % ARR_SIZE;
                         if (sumArrElems(launch_count_arr, ARR_SIZE) >= NUM_CHECKS) {
                             changeState(APDET_STATE_POWERED_ASCENT, &curr_state);
                         }
                     } else {
                         launch_count_arr[launch_count_idx] = 0;
+                        launch_count_idx = (launch_count_idx + 1) % ARR_SIZE;
                         /* update base values */
                         retval = barometerGetPresTempAndLog(&base_pres, &base_temp);
                         if (retval != STATUS_OK) {
@@ -480,7 +482,6 @@ int main()
                         calcAlt(base_pres, &base_alt);
                         writeBaseVars(base_pres, base_temp, base_alt);
                     }
-                    launch_count_idx = (launch_count_idx + 1) % ARR_SIZE;
                     break;
                 }
 
