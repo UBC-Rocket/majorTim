@@ -24,11 +24,12 @@ extern status_t deployDrogueAndPayload()
     /* TODO: Actuator */
     /* Logging */
     int timestamp = timer.read_ms();
-    FILE *pFile = fopen(logPath, "a");
-    fprintf(pFile, "[%d] Drogue and payload deployed but not really.\n", timestamp);
-    fclose(pFile);
+    if(fprintf(logFP, "[%d] Drogue and payload deployed but not really.\n", timestamp) < 20){
+		return STATUS_ERROR; //must log at least 20 chars
+	}
+    fflush(logFP);
 
-    //TODO: FIXME: add status code
+    return STATUS_OK;
 }
 
 /**
@@ -40,9 +41,10 @@ extern status_t deployMain()
     /* TODO: Actuator */
     /* Logging */
     int timestamp = timer.read_ms();
-    FILE *pFile = fopen(logPath, "a");
-    fprintf(pFile, "[%d] Main deployed but not really.\n", timestamp);
-    fclose(pFile);
+	if(fprintf(logFP, "[%d] Main deployed but not really.\n", timestamp) < 20) {
+		return STATUS_ERROR; //must log at least 20 characters
+	}
+    fflush(logFP);
     return STATUS_OK;
 }
 
@@ -76,9 +78,10 @@ extern status_t calcHeight(float curr_pres, float base_alt, float *height)
 
     /* Logging */
     int timestamp = timer.read_ms();
-    FILE *pFile = fopen(logPath, "a");
-    fprintf(pFile, "[%d] [Height] %0.4f \n", timestamp, *height);
-    fclose(pFile);
+    if(fprintf(logFP, "[%d] [Height] %0.4f \n", timestamp, *height) < 8){
+		return STATUS_ERROR; //must log at least 8 characters
+	}
+    fflush(logFP);
     return STATUS_OK;
 }
 
@@ -102,9 +105,9 @@ extern status_t convertToFeet(float height_in_m, float *height_in_ft)
   * @param  accel       A pointer to store the magnitude of the acceleration.
   * @return Status
   */
-extern status_t accelMagnitude(int16_t accel_x, int16_t accel_y, int16_t accel_z, int16_t *accel)
+extern status_t accelGetMagnitude(int16_t accel_x, int16_t accel_y, int16_t accel_z, int16_t* accel)
 {
-    *accel = sqrt((accel_x * accel_x) + (accel_y * accel_y) + (accel_z * accel_z));
+    *accel = (int16_t)sqrt((accel_x * accel_x) + (accel_y * accel_y) + (accel_z * accel_z));
     return STATUS_OK;
 }
 
@@ -125,9 +128,10 @@ extern status_t accelerometerGetAndLog(int16_t *accel_x, int16_t *accel_y, int16
 
     /* Logging */
     int timestamp = timer.read_ms();
-    FILE *pFile = fopen(logPath, "a");
-    fprintf(pFile, "[%d][Accelerometer] X: %d Y: %d Z: %d \n", timestamp, *accel_x, *accel_y, *accel_z);
-    fclose(pFile);
+    if(fprintf(logFP, "[%d][Accelerometer] X: %d Y: %d Z: %d \n", timestamp, *accel_x, *accel_y, *accel_z) < 10){
+		return STATUS_ERROR; //log at least 10 characters
+	}
+    fflush(logFP);
 
     return STATUS_OK;
 }
@@ -170,9 +174,10 @@ extern status_t barometerGetPresTempAndLog(float *curr_pres, float *curr_temp)
 
     /* Logging */
     int timestamp = timer.read_ms();
-    FILE *pFile = fopen(logPath, "a");
-    fprintf(pFile, "[%d] [Barometer] Pres: %.4f Temp: %.4f \n", timestamp, *curr_pres, *curr_temp);
-    fclose(pFile);
+    if(fprintf(logFP, "[%d] [Barometer] Pres: %.4f Temp: %.4f \n", timestamp, *curr_pres, *curr_temp) < 10)	{
+		return STATUS_ERROR; //log at least 10 characters
+	}
+    fflush(logFP);
 
     return STATUS_OK;
 }
@@ -187,17 +192,18 @@ extern status_t changeState(state_t state, state_t *curr_state)
 {
     /* Change the state */
     *curr_state = state;
-    int8_t buffer[] = { (int8_t)state };
-    FILE *pFile = fopen(sdCurrStatePath, "w");
-    fseek(pFile, 0, SEEK_SET);
-    fwrite(buffer, sizeof(int8_t), sizeof(buffer), pFile);
-    fclose(pFile);
+    fseek(currStateFP, 0, SEEK_SET); //reset since we want to overwrite the old one
+    if(fwrite(curr_state, sizeof(state_t), 1, currStateFP) < 1)	{
+		return STATUS_ERROR; //make sure we logged the state
+	}
+    fflush(currStateFP);
 
     /* Logging */
     int timestamp = timer.read_ms();
-    pFile = fopen(logPath, "a");
-    fprintf(pFile, "[%d] [State Change] %d\n", timestamp, (int8_t)state);
-    fclose(pFile);
+	if(fprintf(logFP, "[%d] [State Change] %d\n", timestamp, state) < 10)	{
+		return STATUS_ERROR; //log at least 10 characters
+	}
+    fflush(logFP);
     return STATUS_OK;
 }
 
@@ -211,10 +217,12 @@ extern status_t changeState(state_t state, state_t *curr_state)
 extern status_t writeBaseVars(float base_pres, float base_temp, float base_alt) 
 {
     float buffer[] = {base_pres, base_temp, base_alt};
-    FILE *pFile = fopen(sdBaseVarsPath, "w");
-    fseek(pFile, 0, SEEK_SET);
-    fwrite(buffer, sizeof(float), sizeof(buffer), pFile);
-    fclose(pFile);
+    fseek(baseVarsFP, 0, SEEK_SET); //reset to 0 so we overwrite the old vars
+	size_t bufElemCount = sizeof(buffer)/sizeof(buffer[0]);
+    if(fwrite(buffer, sizeof(float), bufElemCount, baseVarsFP) < bufElemCount){
+		return STATUS_ERROR; //must log all variables
+	}
+    fflush(baseVarsFP);
     return STATUS_OK;
 }
 
@@ -225,12 +233,10 @@ extern status_t writeBaseVars(float base_pres, float base_temp, float base_alt)
   */
 extern status_t recoverLastState(state_t *curr_state)
 {
-    int8_t buf[1];
-    FILE *pFile = fopen(sdCurrStatePath, "r");
-    fseek(pFile, 0, SEEK_SET);
-    fread(buf, sizeof(int8_t), sizeof(buf), pFile);
-    *curr_state = (state_t)buf[0];
-    fclose(pFile);
+    //fseek(currStateFP, 0, SEEK_SET); //shouldn't need to set to 0 since the file pointer points back to beginning if we lose power
+    if(fread(curr_state, sizeof(state_t), 1, currStateFP) < 1){
+		return STATUS_ERROR; //must read the state (1 item)
+	}
     return STATUS_OK;
 }
 
@@ -263,8 +269,10 @@ extern status_t recoverBaseVars(float *base_pres, float *base_temp, float *base_
   */
 extern status_t recoverAll(state_t *curr_state, float *base_pres, float *base_temp, float *base_alt) 
 {
-    recoverLastState(curr_state);
-    recoverBaseVars(base_pres, base_temp, base_alt);
+    if(recoverLastState(curr_state) != STATUS_OK ||
+	   recoverBaseVars(base_pres, base_temp, base_alt) != STATUS_OK){
+		return STATUS_ERROR;
+	}
     return STATUS_OK;
 }
 
@@ -300,7 +308,7 @@ TODO LIST
 */
 
 /**
-  * @brief  Returns true if rocket is in standby (otherwise assume blackout occured).
+  * @brief  Returns true if rocket is in standby (otherwise assume blackout occurred).
   * @param  accel       The current magnitude of the acceleration.
   * @param  curr_pres   The current pressure (if in standby, this will be the base pressure).
   * @param  curr_temp   The current temperature (if in standby, this will be the base temperature).
@@ -413,18 +421,23 @@ static bool detectLanded(float base_alt, float curr_pres, float *height)
   */
 int main()
 {
-    status_t retval;
+	{ //scope retval
+		status_t retval;
+		do {
+			retval = barometerInit();
+		} while (retval != STATUS_OK);
 
-    do {
-        retval = barometerInit();
-    } while (retval != STATUS_OK);
-    
-    do {
-        retval = accelerometerInit();
-    } while (retval != STATUS_OK);
-    
+		do {
+			retval = accelerometerInit();
+		} while (retval != STATUS_OK);
+	}
+
     SDBlockDevice sd(SPI_MOSI, SPI_MISO, SPI_SCK, SPI_CS);
     FATFileSystem fs(sdMountPt, &sd);
+
+    logFP = fopen(logPath, "a");
+	baseVarsFP = fopen(sdBaseVarsPath, "w");
+	currStateFP = fopen(sdCurrStatePath, "w");
 
     /* RECOVER IN CASE OF BLACKOUT */
     float base_pres;
@@ -477,11 +490,11 @@ int main()
                 {
                     /* TODO: location calbration with SD (check if space in memory is null) */
                     /* Get acceleration */
-                    retval = accelerometerGetAndLog(&accel_x, &accel_y, &accel_z);
+                    status_t retval = accelerometerGetAndLog(&accel_x, &accel_y, &accel_z);
                     if (retval != STATUS_OK) {
                         break;
                     }
-                    accelMagnitude(accel_x, accel_y, accel_z, &accel);
+					accelGetMagnitude(accel_x, accel_y, accel_z, &accel);
 
                     /* Get pressure and temperature */
                     retval = barometerGetPresTempAndLog(&base_pres, &base_temp);
@@ -512,7 +525,7 @@ int main()
                     }
 
                     /* Calculate magnitude of acceleration */
-                    accelMagnitude(accel_x, accel_y, accel_z, &accel);
+					accelGetMagnitude(accel_x, accel_y, accel_z, &accel);
 
                     if (detectLaunch(accel)) {
                         launch_count_arr[launch_count_idx] = 1;
@@ -541,11 +554,11 @@ int main()
 
             case APDET_STATE_POWERED_ASCENT:
                 {
-                    status_t retval = accelerometerGetAndLog(&accel_x, &accel_y, &accel_z);
+					status_t retval = accelerometerGetAndLog(&accel_x, &accel_y, &accel_z);
                     if (retval != STATUS_OK) {
                         break;
                     }
-                    accelMagnitude(accel_x, accel_y, accel_z, &accel);
+					accelGetMagnitude(accel_x, accel_y, accel_z, &accel);
                     if (detectBurnout(&bo_det_accel, accel)) {
                         burnout_count_arr[burnout_count_idx] = 1;
                         if (sumArrElems(burnout_count_arr, ARR_SIZE) >= NUM_CHECKS) {
@@ -560,12 +573,12 @@ int main()
 
             case APDET_STATE_COASTING:
                 {
-                    retval = accelerometerGetAndLog(&accel_x, &accel_y, &accel_z);
+					status_t retval = accelerometerGetAndLog(&accel_x, &accel_y, &accel_z);
                     if (retval != STATUS_OK) {
                         break;
                     }
-                    accelMagnitude(accel_x, accel_y, accel_z, &accel);
-                    status_t retval = barometerGetAndLog(&curr_pres);
+					accelGetMagnitude(accel_x, accel_y, accel_z, &accel);
+                    retval = barometerGetAndLog(&curr_pres);
                     if (retval != STATUS_OK) {
                         break;
                     }
@@ -583,7 +596,7 @@ int main()
 
             case APDET_STATE_APOGEE_TESTING:
                 {
-                    status_t retval = barometerGetAndLog(&curr_pres);
+					status_t retval = barometerGetAndLog(&curr_pres);
                     if (retval != STATUS_OK) {
                         break;
                     }
@@ -609,7 +622,7 @@ int main()
 
             case APDET_STATE_INITIAL_DESCENT:
                 {
-                    status_t retval = barometerGetAndLog(&curr_pres);
+					status_t retval = barometerGetAndLog(&curr_pres);
                     if (retval != STATUS_OK) {
                         break;
                     }
@@ -634,7 +647,7 @@ int main()
 
             case APDET_STATE_FINAL_DESCENT:
                 {
-                    status_t retval = barometerGetAndLog(&curr_pres);
+					status_t retval = barometerGetAndLog(&curr_pres);
                     if (retval != STATUS_OK) {
                         break;
                     }

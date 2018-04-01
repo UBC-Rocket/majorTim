@@ -35,4 +35,8 @@ static const char* sdBaseVarsPath = "/sd/baseVars.bin";
 static const char* sdCurrStatePath = "/sd/currState.bin";
 static const char* sdMountPt = "sd";
 
+static FILE* logFP;
+static FILE* baseVarsFP;
+static FILE* currStateFP;
+
 #endif
