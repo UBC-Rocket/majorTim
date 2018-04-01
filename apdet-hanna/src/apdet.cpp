@@ -12,6 +12,7 @@ Hardware-independent functions.
 /* STATIC VARS ============================================================================================== */
 
 Timer timer;
+DigitalOut led1(LED1, false);
 
 /* ACTUATORS ================================================================================================ */
 
@@ -98,7 +99,7 @@ extern status_t calcHeight(float curr_pres, float base_alt, float *height)
 
 extern status_t convertToFeet(float height_in_m, float *height_in_ft)
 {
-	*height_in_ft = height_in_m * 3.28084;
+    *height_in_ft = height_in_m * 3.28084;
     return STATUS_OK;
 }
 
@@ -112,7 +113,7 @@ extern status_t convertToFeet(float height_in_m, float *height_in_ft)
   */
 extern status_t accelMagnitude(int16_t accel_x, int16_t accel_y, int16_t accel_z, int16_t *accel)
 {
-	*accel = sqrt((accel_x * accel_x) + (accel_y * accel_y) + (accel_z * accel_z));
+    *accel = sqrt((accel_x * accel_x) + (accel_y * accel_y) + (accel_z * accel_z));
     return STATUS_OK;
 }
 
@@ -174,7 +175,6 @@ extern status_t changeState(state_t state, state_t *curr_state)
     *curr_state = state;
     int8_t buffer[] = { (int8_t)state };
     FILE *pFile = fopen(sdCurrStatePath, "w");
-    fseek(pFile, 0, SEEK_SET);
     fwrite(buffer, sizeof(int8_t), sizeof(buffer), pFile);
     fclose(pFile);
 
@@ -190,7 +190,6 @@ extern status_t writeBaseVars(float base_pres, float base_temp, float base_alt)
 {
     float buffer[] = {base_pres, base_temp, base_alt};
     FILE *pFile = fopen(sdBaseVarsPath, "w");
-    fseek(pFile, 0, SEEK_SET);
     fwrite(buffer, sizeof(float), sizeof(buffer), pFile);
     fclose(pFile);
     return STATUS_OK;
@@ -200,7 +199,6 @@ extern status_t recoverLastState(state_t *curr_state)
 {
     int8_t buf[1];
     FILE *pFile = fopen(sdCurrStatePath, "r");
-    fseek(pFile, 0, SEEK_SET);
     fread(buf, sizeof(int8_t), sizeof(buf), pFile);
     *curr_state = (state_t)buf[0];
     fclose(pFile);
@@ -422,6 +420,9 @@ int main()
 
     state_t curr_state;
     changeState(APDET_STATE_TESTING, &curr_state);
+ 
+    /* turn on LED to indicate initialization has succeeded*/
+    led1 = !led1;
 
     while (1) {
 
@@ -433,7 +434,7 @@ int main()
                 {
                     /* TODO: location calbration with SD (check if space in memory is null) */
                     /* Get acceleration */
-                    status_t retval = accelerometerGetAndLog(&accel_x, &accel_y, &accel_z);
+                    retval = accelerometerGetAndLog(&accel_x, &accel_y, &accel_z);
                     if (retval != STATUS_OK) {
                         break;
                     }
@@ -458,12 +459,11 @@ int main()
 
             case APDET_STATE_STANDBY:
                 {
-                    status_t retval = accelerometerGetAndLog(&accel_x, &accel_y, &accel_z);
+                    retval = accelerometerGetAndLog(&accel_x, &accel_y, &accel_z);
                     if (retval != STATUS_OK) {
                         break;
                     }
                     accelMagnitude(accel_x, accel_y, accel_z, &accel);
-
 
                     if (detectLaunch(accel)) {
                         launch_count_arr[launch_count_idx] = 1;
@@ -474,7 +474,7 @@ int main()
                     } else {
                         launch_count_arr[launch_count_idx] = 0;
                         launch_count_idx = (launch_count_idx + 1) % ARR_SIZE;
-                        //update base values
+                        /* update base values */
                         retval = barometerGetPresTempAndLog(&base_pres, &base_temp);
                         if (retval != STATUS_OK) {
                             break;
@@ -487,7 +487,7 @@ int main()
 
             case APDET_STATE_POWERED_ASCENT:
                 {
-                    status_t retval = accelerometerGetAndLog(&accel_x, &accel_y, &accel_z);
+                    retval = accelerometerGetAndLog(&accel_x, &accel_y, &accel_z);
                     if (retval != STATUS_OK) {
                         break;
                     }
@@ -511,7 +511,7 @@ int main()
                         break;
                     }
                     accelMagnitude(accel_x, accel_y, accel_z, &accel);
-                    status_t retval = barometerGetAndLog(&curr_pres);
+                    retval = barometerGetAndLog(&curr_pres);
                     if (retval != STATUS_OK) {
                         break;
                     }
@@ -529,7 +529,7 @@ int main()
 
             case APDET_STATE_APOGEE_TESTING:
                 {
-                    status_t retval = barometerGetAndLog(&curr_pres);
+                    retval = barometerGetAndLog(&curr_pres);
                     if (retval != STATUS_OK) {
                         break;
                     }
@@ -563,7 +563,7 @@ int main()
 
             case APDET_STATE_INITIAL_DESCENT:
                 {
-                    status_t retval = barometerGetAndLog(&curr_pres);
+                    retval = barometerGetAndLog(&curr_pres);
                     if (retval != STATUS_OK) {
                         break;
                     }
@@ -588,7 +588,7 @@ int main()
 
             case APDET_STATE_FINAL_DESCENT:
                 {
-                    status_t retval = barometerGetAndLog(&curr_pres);
+                    retval = barometerGetAndLog(&curr_pres);
                     if (retval != STATUS_OK) {
                         break;
                     }
@@ -614,8 +614,7 @@ int main()
                 {
                     /* ERROR STATE */
                     break;
-                }
-                
+                }   
         }
     }
 
