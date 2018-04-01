@@ -135,7 +135,7 @@ extern status_t accelerometerGetAndLog(int16_t *accel_x, int16_t *accel_y, int16
     return STATUS_OK;
 }
 
-extern status_t barometerGetAndLog(float *curr_pres) 
+extern status_t barometerGetAndLog(float *curr_pres)
 {
     /* Query data from barometer */
     status_t retval = barometerGetCompensatedPressure(curr_pres);
@@ -152,7 +152,7 @@ extern status_t barometerGetAndLog(float *curr_pres)
     return STATUS_OK;
 }
 
-extern status_t barometerGetPresTempAndLog(float *curr_pres, float *curr_temp) 
+extern status_t barometerGetPresTempAndLog(float *curr_pres, float *curr_temp)
 {
     /* Query data from barometer */
     status_t retval = barometerGetCompensatedValues(curr_pres, curr_temp);
@@ -169,7 +169,7 @@ extern status_t barometerGetPresTempAndLog(float *curr_pres, float *curr_temp)
     return STATUS_OK;
 }
 
-extern status_t changeState(state_t state, state_t *curr_state) 
+extern status_t changeState(state_t state, state_t *curr_state)
 {
     /* Change the state */
     *curr_state = state;
@@ -186,7 +186,7 @@ extern status_t changeState(state_t state, state_t *curr_state)
     return STATUS_OK;
 }
 
-extern status_t writeBaseVars(float base_pres, float base_temp, float base_alt) 
+extern status_t writeBaseVars(float base_pres, float base_temp, float base_alt)
 {
     float buffer[] = {base_pres, base_temp, base_alt};
     FILE *pFile = fopen(sdBaseVarsPath, "w");
@@ -205,7 +205,7 @@ extern status_t recoverLastState(state_t *curr_state)
     return STATUS_OK;
 }
 
-extern status_t recoverBaseVars(float *base_pres, float *base_temp, float *base_alt) 
+extern status_t recoverBaseVars(float *base_pres, float *base_temp, float *base_alt)
 {
     float buf[3];
     FILE *pFile = fopen(sdCurrStatePath, "r");
@@ -217,7 +217,7 @@ extern status_t recoverBaseVars(float *base_pres, float *base_temp, float *base_
     return STATUS_OK;
 }
 
-extern status_t recoverAll(state_t *curr_state, float *base_pres, float *base_temp, float *base_alt) 
+extern status_t recoverAll(state_t *curr_state, float *base_pres, float *base_temp, float *base_alt)
 {
     recoverLastState(curr_state);
     recoverBaseVars(base_pres, base_temp, base_alt);
@@ -236,7 +236,7 @@ extern int sumArrElems(int arr[], int n)
 
 /* ROCKET FLIGHT STATE TRANSITION DETECTION FUNCTIONS ======================================================= */
 
-/* 
+/*
 TODO LIST
 - Incorporate Kalman data filtering?
 - Make sure a program clears the SD card / base variable file before every flight BUT NOT AFTER A BLACKOUT
@@ -263,7 +263,7 @@ static bool testStandby(int16_t accel, float curr_pres, float curr_temp, float c
     return (standby_accel && standby_alt);
 }
 
-/** 
+/**
   * @brief  Detects launch.
   * @param  accel       The current magnitude of the acceleration.
   * @return Boolean
@@ -273,14 +273,14 @@ static bool detectLaunch(int16_t accel)
     return (accel >= LAUNCH_ACCEL);
 }
 
-/** 
+/**
   * @brief  Detects burnout.
   * @param  accel       The current magnitude of the acceleration.
   * @return Boolean
   */
 static bool detectBurnout(int16_t *prev_accel, int16_t accel)
 {
-    /* 
+    /*
     Barometer data is probably not be stable at this point.
     TODO: Accelerometer data may not be either. In that case, we'll just wait ~4s for burnout.
      (depends on rocket though)
@@ -290,7 +290,7 @@ static bool detectBurnout(int16_t *prev_accel, int16_t accel)
     return burnout;
 }
 
-/** 
+/**
   * @brief  Determines whether rocket is nearing apogee.
   * @param  accel       The current magnitude of the acceleration.
   * @return Boolean
@@ -303,7 +303,7 @@ static bool nearingApogee(int16_t accel, float base_alt, float curr_pres)
     return (accel <= ACCEL_NEAR_APOGEE && height > MIN_APOGEE_DEPLOY);
 }
 
-/** 
+/**
   * @brief  Determines whether rocket has passed apogee.
   * @param  base_alt    The base altitude.
   * @param  curr_pres   The current pressure.
@@ -319,7 +319,7 @@ static bool testApogee(float base_alt, float curr_pres, float *height)
     return ((*height - prev_height) <= 0);
 }
 
-/** 
+/**
   * @brief  Verifies that rocket's height <= MAIN_DEPLOY_HEIGHT ft.
   * @param  base_alt    The base altitude.
   * @param  curr_pres   The current pressure.
@@ -336,7 +336,7 @@ static bool detectMainAlt(float base_alt, float curr_pres)
     return (height_in_ft <= MAIN_DEPLOY_HEIGHT);
 }
 
-/** 
+/**
   * @brief  Detects landing by checking that altitude delta = 0.
   * @param  base_alt    The base altitude.
   * @param  curr_pres   The current pressure.
@@ -354,22 +354,23 @@ static bool detectLanded(float base_alt, float curr_pres, float *height)
 
 /* MAIN ===================================================================================================== */
 
-/** 
+/**
   * @brief Apogee Detection board routine - hardware-independent implementation.
   * @return Status
   */
 int main()
 {
+	timer.start();
     status_t retval;
 
     do {
         retval = barometerInit();
     } while (retval != STATUS_OK);
-    
+
     do {
         retval = accelerometerInit();
     } while (retval != STATUS_OK);
-    
+
     SDBlockDevice sd(SPI_MOSI, SPI_MISO, SPI_SCK, SPI_CS);
 
     int ret;
@@ -377,7 +378,7 @@ int main()
     do {
         ret = sd.init();
     } while (ret != 0);
-    
+
     FATFileSystem fs(sdMountPt, &sd);
 
     /* RECOVER IN CASE OF BLACKOUT */
@@ -393,7 +394,7 @@ int main()
 
     /* For detectLanded function */
     float land_det_height = 0;
-    
+
     /* don't mind resetting these */
     int launch_count_arr[ARR_SIZE];
     int burnout_count_arr[ARR_SIZE];
@@ -420,7 +421,7 @@ int main()
 
     state_t curr_state;
     changeState(APDET_STATE_TESTING, &curr_state);
- 
+
     /* turn on LED to indicate initialization has succeeded*/
     led1 = !led1;
 
@@ -614,7 +615,7 @@ int main()
                 {
                     /* ERROR STATE */
                     break;
-                }   
+                }
         }
     }
 
