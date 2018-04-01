@@ -27,6 +27,8 @@ extern status_t deployDrogueAndPayload()
     FILE *pFile = fopen(logPath, "a");
     fprintf(pFile, "[%d] Drogue and payload deployed but not really.\n", timestamp);
     fclose(pFile);
+
+    //TODO: FIXME: add status code
 }
 
 /**
@@ -422,13 +424,6 @@ int main()
     } while (retval != STATUS_OK);
     
     SDBlockDevice sd(SPI_MOSI, SPI_MISO, SPI_SCK, SPI_CS);
-
-    int ret;
-
-    do {
-        ret = sd.init();
-    } while (ret != 0);
-    
     FATFileSystem fs(sdMountPt, &sd);
 
     /* RECOVER IN CASE OF BLACKOUT */
