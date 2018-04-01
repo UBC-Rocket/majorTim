@@ -246,25 +246,6 @@ extern status_t barometerGetCompensatedValues(float *pressure, float *temperatur
     return STATUS_OK;
 }
 
-/**
-  * @brief  Gets the compensated pressure value
-  * @param  pressure A pointer to store compensated pressure value
-  * @retval Status
-  */
-extern status_t barometerGetCompensatedPressure(float *pressure)
-{
-    uint32_t d1, d2;
-    float t;
-
-    if (barometerGetUncompensatedValues(&d1, &d2) != STATUS_OK) {
-        return STATUS_ERROR;
-    }
-    if (barometerCompensateValues(d1, d2, pressure, &t) != STATUS_OK) {
-        return STATUS_ERROR;
-    }
-
-    return STATUS_OK;
-}
 
 /* Accelerometer Functions -------------------------------------------------- */
 

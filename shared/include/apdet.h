@@ -8,7 +8,7 @@
 #define STBY_ACCEL_EPSILON                50    /* (millig)   maximum variation of the accelerometer at standby. 
                                                                 Should be LAUNCH_ACCEL - 1 */
 #define ACCEL_NEAR_APOGEE                150    /* (millig)   accel magnitude <= 150 indicates we are close to apogee */
-#define MAIN_DEPLOY_HEIGHT              2000    /* (ft)       height at which we deploy main */
+#define MAIN_DEPLOY_HEIGHT             609.6    /* (m)        height below which we deploy main (equivalent to 2000 ft) */
 
 /* Constants for safety checks */
 #define NUM_CHECKS                         5    /* each condition has to pass 5 times */
@@ -18,8 +18,7 @@
 #define EPSILON                        0.005    /* used for floating point value comparison */
 
 /* Duration of pauses of program */
-#define POST_DROGUE_DEPLOYMENT_PAUSE    3000    /* (ms) regulation pause after deploying drogue */
-#define PRESSURE_NORMALIZATION_PAUSE    2000    /* (ms) duration of sensor-querying pause 
+#define PRESSURE_NORMALIZATION_PAUSE    1000    /* (ms) duration of sensor-querying pause 
                                                             while pressure normalizes in the rocket */
 
 /* Constants for altitude calculation */
@@ -34,5 +33,9 @@ static const char* logPath = "/sd/log.bin";
 static const char* sdBaseVarsPath = "/sd/baseVars.bin";
 static const char* sdCurrStatePath = "/sd/currState.bin";
 static const char* sdMountPt = "sd";
+
+static FILE* logFP;
+static FILE* baseVarsFP;
+static FILE* currStateFP;
 
 #endif
