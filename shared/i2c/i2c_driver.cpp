@@ -307,7 +307,7 @@ extern status_t accelerometerInit(void)
     if (accelerometerWriteRegister(ACCELEROMETER_REG_CTRL_REG1, 0x27) != STATUS_OK) {
         return STATUS_ERROR;
     }
-    if (accelerometerWriteRegister(ACCELEROMETER_REG_CTRL_REG4, 0xB0) != STATUS_OK) {
+    if (accelerometerWriteRegister(ACCELEROMETER_REG_CTRL_REG4, 0x90) != STATUS_OK) {
         return STATUS_ERROR;
     }
 
@@ -334,10 +334,10 @@ extern status_t accelerometerGetData(int16_t *x, int16_t *y, int16_t *z)
     tempy = ((uint16_t)buffer[3] << 8) | (uint16_t)buffer[2];
     tempz = ((uint16_t)buffer[5] << 8) | (uint16_t)buffer[4];
 
-    /*convert to mg (data is 12 bits left justified two's complement with 12mg/digit at +-24g)*/
-    *x = (tempx / 16) * 12;
-    *y = (tempy / 16) * 12;
-    *z = (tempz / 16) * 12;
+    /*convert to mg (data is 12 bits left justified two's complement with 6mg/digit at +-12g)*/
+    *x = (tempx / 16) * 6;
+    *y = (tempy / 16) * 6;
+    *z = (tempz / 16) * 6;
 
     return STATUS_OK;
 }
