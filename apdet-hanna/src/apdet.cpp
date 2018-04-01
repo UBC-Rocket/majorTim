@@ -477,7 +477,7 @@ int main()
                 {
                     /* TODO: location calbration with SD (check if space in memory is null) */
                     /* Get acceleration */
-                    status_t retval = accelerometerGetAndLog(&accel_x, &accel_y, &accel_z);
+                    retval = accelerometerGetAndLog(&accel_x, &accel_y, &accel_z);
                     if (retval != STATUS_OK) {
                         break;
                     }
