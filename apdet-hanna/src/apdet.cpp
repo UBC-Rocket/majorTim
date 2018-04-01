@@ -377,9 +377,6 @@ int main()
     do {
         ret = sd.init();
     } while (ret != 0);
-
-    /* turn on LED to indicate initialization has succeeded*/
-    led1 = !led1;
     
     FATFileSystem fs(sdMountPt, &sd);
 
@@ -423,6 +420,9 @@ int main()
 
     state_t curr_state;
     changeState(APDET_STATE_TESTING, &curr_state);
+ 
+    /* turn on LED to indicate initialization has succeeded*/
+    led1 = !led1;
 
     while (1) {
 
