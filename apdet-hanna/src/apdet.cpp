@@ -142,7 +142,7 @@ status_t accelerometerGetAndLog(int16_t *accel_x, int16_t *accel_y, int16_t *acc
   * @param  curr_temp   A pointer to store the current temperature.
   * @return Status
   */
-status_t barometerGetAndLog(float *curr_pres, float *curr_temp) 
+status_t barometerGetAndLog(float *curr_pres, float *curr_temp)
 {
     /* Query data from barometer */
     status_t retval = barometerGetCompensatedValues(curr_pres, curr_temp);
@@ -159,6 +159,7 @@ status_t barometerGetAndLog(float *curr_pres, float *curr_temp)
 
     return STATUS_OK;
 }
+
 
 status_t resetCheckArrAndIdx(int arr[], int size, int *idx) {
     bzero(arr, sizeof(arr[0]) * size);
@@ -194,6 +195,7 @@ status_t changeStateAndResetChecks(state_t state, state_t *curr_state, int arr[]
     fflush(logFP);
     return STATUS_OK;
 }
+
 
 /**
   * @brief  Writes base variables to SD.
@@ -236,12 +238,14 @@ status_t recoverLastState(state_t *curr_state)
   * @return Status
   */
 status_t recoverBaseVars(baseVarStruct *baseVars) 
+
 {
     if (fread (baseVars, sizeof(baseVarStruct), 1, baseVarsFP) < 1) {
         return STATUS_ERROR; //must read the state (1 item)
     }
     return STATUS_OK;
 }
+
 
 /**
   * @brief  Recovers previous state and base variables from SD.
@@ -252,6 +256,7 @@ status_t recoverBaseVars(baseVarStruct *baseVars)
   * @return Status
   */
 status_t recoverAll(state_t *curr_state, baseVarStruct *baseVars) 
+
 {
     if (recoverLastState(curr_state) != STATUS_OK || 
         recoverBaseVars(baseVars) != STATUS_OK) {
@@ -312,7 +317,7 @@ float getMedian(float arr[], int size) {
 
 /* ROCKET FLIGHT STATE TRANSITION DETECTION FUNCTIONS ======================================================= */
 
-/* 
+/*
 TODO LIST
 - Incorporate Kalman data filtering?
 - Make sure a program clears the SD card / base variable file before every flight BUT NOT AFTER A BLACKOUT
@@ -338,7 +343,7 @@ bool testStandby(int16_t accel, float curr_alt)
     return (standby_accel && standby_alt);
 }
 
-/** 
+/**
   * @brief  Detects launch.
   * @param  accel       The current magnitude of the acceleration.
   * @return Boolean
@@ -348,7 +353,7 @@ bool detectLaunch(int16_t accel)
     return (accel >= LAUNCH_ACCEL);
 }
 
-/** 
+/**
   * @brief  Detects burnout.
   * @param  prev_accel  The last recorded magnitude of acceleration.
   * @param  accel       The current magnitude of the acceleration.
@@ -356,7 +361,7 @@ bool detectLaunch(int16_t accel)
   */
 bool detectBurnout(int16_t *prev_accel, int16_t accel)
 {
-    /* 
+    /*
     Barometer data is probably not be stable at this point.
     TODO: Accelerometer data may not be either. In that case, we'll just wait ~4s for burnout.
      (depends on rocket though)
@@ -366,7 +371,7 @@ bool detectBurnout(int16_t *prev_accel, int16_t accel)
     return burnout;
 }
 
-/** 
+/**
   * @brief  Determines whether rocket is nearing apogee.
   * @param  accel       The current magnitude of the acceleration.
   * @param  base_alt    The base altitude.
@@ -381,7 +386,7 @@ bool nearingApogee(int16_t accel, float base_alt, float curr_pres)
     return (accel <= ACCEL_NEAR_APOGEE && height > MIN_APOGEE_DEPLOY);
 }
 
-/** 
+/**
   * @brief  Determines whether rocket has passed apogee.
   * @param  base_alt    The base altitude.
   * @param  curr_pres   The current pressure.
@@ -397,7 +402,7 @@ bool testApogee(float base_alt, float curr_pres, float *height)
     return ((*height - prev_height) <= 0);
 }
 
-/** 
+/**
   * @brief  Verifies that rocket's height <= MAIN_DEPLOY_HEIGHT ft.
   * @param  base_alt    The base altitude.
   * @param  curr_pres   The current pressure.
@@ -426,10 +431,9 @@ bool detectLanded(float base_alt, float curr_pres, float *height)
     return ((*height - prev_height) <= EPSILON);
 }
 
-
 /* MAIN ===================================================================================================== */
 
-/** 
+/**
   * @brief Apogee Detection board routine - hardware-independent implementation.
   * @return Status
   */
@@ -445,11 +449,10 @@ int main()
             retval = accelerometerInit();
         } while (retval != STATUS_OK);
     }
-
+  
     SDBlockDevice sd(SPI_MOSI, SPI_MISO, SPI_SCK, SPI_CS);
-    FATFileSystem fs(sdMountPt, &sd);
 
-    /* RECOVER IN CASE OF BLACKOUT */
+    FATFileSystem fs(sdMountPt, &sd);
 
     baseVarStruct baseVars;
 
