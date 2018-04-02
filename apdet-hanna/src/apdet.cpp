@@ -78,10 +78,12 @@ status_t calcHeight(float curr_pres, float base_alt, float *height)
 
     /* Logging */
     int timestamp = timer.read_ms();
-    if(fprintf(logFP, "[%d] [Height] %0.4f \n", timestamp, *height) < 8){
+    if (fprintf(logFP, "[%d] [Height] %0.4f \n", timestamp, *height) < 8) {
         return STATUS_ERROR; //must log at least 8 characters
     }
+
     fflush(logFP);
+
     return STATUS_OK;
 }
 
@@ -102,7 +104,9 @@ status_t accelGetMagnitudeAndLog(int16_t accel_x, int16_t accel_y, int16_t accel
     if (fprintf(logFP, "[%d] [Accel Magnitude] %d\n", *accel, timestamp) < 20) {
         return STATUS_ERROR; //must log at least 20 chars
     }
+
     fflush(logFP);
+
     return STATUS_OK;
 }
 
@@ -123,9 +127,10 @@ status_t accelerometerGetAndLog(int16_t *accel_x, int16_t *accel_y, int16_t *acc
 
     /* Logging */
     int timestamp = timer.read_ms();
-    if(fprintf(logFP, "[%d][Accelerometer] X: %d Y: %d Z: %d \n", timestamp, *accel_x, *accel_y, *accel_z) < 10){
+    if(fprintf(logFP, "[%d] [Accelerometer] X: %d Y: %d Z: %d \n", timestamp, *accel_x, *accel_y, *accel_z) < 10){
         return STATUS_ERROR; //log at least 10 characters
     }
+
     fflush(logFP);
 
     return STATUS_OK;
@@ -194,7 +199,7 @@ status_t changeStateAndResetChecks(state_t state, state_t *curr_state, int arr[]
   * @brief  Writes base variables to SD.
   * @param  base_pres   Pressure at launch site.
   * @param  base_temp   Temperature at launch site.
-  * @param  baseVars.base_alt    Launch site altitude.
+  * @param  base_alt    Launch site altitude.
   * @return Status
   */
 status_t writeBaseVars(baseVarStruct baseVars) 
@@ -227,7 +232,7 @@ status_t recoverLastState(state_t *curr_state)
   * @brief  Recovers base variables from SD.
   * @param  base_pres   Pointer holding the pressure at the launch site.
   * @param  base_temp   Pointer holding the temperature at the launch site.
-  * @param  baseVars.base_alt    Pointer holding the launch site's altitude.
+  * @param  base_alt    Pointer holding the launch site's altitude.
   * @return Status
   */
 status_t recoverBaseVars(baseVarStruct *baseVars) 
@@ -243,7 +248,7 @@ status_t recoverBaseVars(baseVarStruct *baseVars)
   * @param  curr_state  Pointer holding the current state.
   * @param  base_pres   Pointer holding the pressure at the launch site.
   * @param  base_temp   Pointer holding the temperature at the launch site.
-  * @param  baseVars.base_alt    Pointer holding the launch site's altitude.
+  * @param  base_alt    Pointer holding the launch site's altitude.
   * @return Status
   */
 status_t recoverAll(state_t *curr_state, baseVarStruct *baseVars) 
@@ -251,21 +256,23 @@ status_t recoverAll(state_t *curr_state, baseVarStruct *baseVars)
     if (recoverLastState(curr_state) != STATUS_OK || 
         recoverBaseVars(baseVars) != STATUS_OK) {
         return STATUS_ERROR;
+    } else {
+        return STATUS_OK;
     }
-    return STATUS_OK;
 }
 
 //returns true if a file exists and has 0 size
 bool isNullOrEmpty(FILE* fp)
 {
-    if(fp == NULL) {
+    if (fp == NULL) {
         return true;
+    } else {
+
+        fseek(fp, 0, SEEK_END);
+        int size = ftell(fp);
+
+        return (size == 0);
     }
-
-    fseek(fp, 0, SEEK_END);
-    int size = ftell(fp);
-
-    return (size == 0);
 }
 
 /**
@@ -283,24 +290,23 @@ int sumArrElems(int arr[], int size)
     return sum;
 }
 
-float getMedian(float x[], int n) {
+float getMedian(float arr[], int size) {
     float temp;
     int i, j;
     /* Selection sort */
-    for(i=0; i<n-1; i++) {
-        for(j=i+1; j<n; j++) {
-            if(x[j] < x[i]) {
-                // swap elements
-                temp = x[i];
-                x[i] = x[j];
-                x[j] = temp;
+    for(i = 0; i < size - 1; i++) {
+        for(j = i + 1; j < size; j++) {
+            if(arr[j] < arr[i]) {
+                temp = arr[i];
+                arr[i] = arr[j];
+                arr[j] = temp;
             }
         }
     }
-    if(n % 2 == 0) {
-        return((x[n/2] + x[n/2 - 1]) / 2.0);
+    if(size % 2 == 0) {
+        return((arr[size/2] + arr[size/2 - 1]) / 2.0);
     } else {
-        return x[n/2];
+        return arr[size/2];
     }
 }
 
@@ -363,7 +369,7 @@ bool detectBurnout(int16_t *prev_accel, int16_t accel)
 /** 
   * @brief  Determines whether rocket is nearing apogee.
   * @param  accel       The current magnitude of the acceleration.
-  * @param  baseVars.base_alt    The base altitude.
+  * @param  base_alt    The base altitude.
   * @param  curr_pres   The current pressure.
   * @return Boolean
   */
@@ -377,7 +383,7 @@ bool nearingApogee(int16_t accel, float base_alt, float curr_pres)
 
 /** 
   * @brief  Determines whether rocket has passed apogee.
-  * @param  baseVars.base_alt    The base altitude.
+  * @param  base_alt    The base altitude.
   * @param  curr_pres   The current pressure.
   * @param  height      The last recorded height.
   * @return Boolean
@@ -393,7 +399,7 @@ bool testApogee(float base_alt, float curr_pres, float *height)
 
 /** 
   * @brief  Verifies that rocket's height <= MAIN_DEPLOY_HEIGHT ft.
-  * @param  baseVars.base_alt    The base altitude.
+  * @param  base_alt    The base altitude.
   * @param  curr_pres   The current pressure.
   * @return Boolean
   */
@@ -401,14 +407,13 @@ bool detectMainAlt(float base_alt, float curr_pres)
 {
     float height;
     calcHeight(curr_pres, base_alt, &height);
-    float height_in_ft;
 
-    return (height_in_ft <= MAIN_DEPLOY_HEIGHT);
+    return (height <= MAIN_DEPLOY_HEIGHT);
 }
 
 /** 
   * @brief  Detects landing by checking that altitude delta ≈ 0.
-  * @param  baseVars.base_alt    The base altitude.
+  * @param  base_alt    The base altitude.
   * @param  curr_pres   The current pressure.
   * @param  height      The last recorded height.
   * @return Boolean
@@ -418,7 +423,7 @@ bool detectLanded(float base_alt, float curr_pres, float *height)
     float prev_height = *height;
     calcHeight(curr_pres, base_alt, height);
 
-    return (fabs(*height - prev_height) <= EPSILON);
+    return ((*height - prev_height) <= EPSILON);
 }
 
 
@@ -495,28 +500,50 @@ int main()
     while (1) {
 
         int16_t accel, accel_x, accel_y, accel_z;
-        float curr_pres, curr_temp, curr_alt;
+        float curr_pres, curr_temp, curr_height;
+        
+        // status_t retval;
 
-        //move all gets to here 
+        // /* Get acceleration */
+        // retval = accelerometerGetAndLog(&accel_x, &accel_y, &accel_z);
+        // if (retval != STATUS_OK) {
+        //     break;
+        // }
+
+        // /* Get acceleration magnitude */
+        // accelGetMagnitudeAndLog(accel_x, accel_y, accel_z, &accel);
+        // if (retval != STATUS_OK) {
+        //     break;
+        // }
+
+        // /* Get pressure and temperature */
+        // retval = barometerGetAndLog(&curr_pres, &curr_temp);
+        // if (retval != STATUS_OK) {
+        //     break;
+        // }
+
+        // /* Get current relative altitude (height above ground) */
+        // calcHeight(curr_pres, base_alt, &curr_height);
+
 
         switch(curr_state) {
             case APDET_STATE_TESTING:
             {
-                    /* TODO: location calbration with SD (check if space in memory is null) */
-                    /* Get acceleration */
+                /* Get acceleration */
                 status_t retval = accelerometerGetAndLog(&accel_x, &accel_y, &accel_z);
                 if (retval != STATUS_OK) {
                     break;
                 }
                 accelGetMagnitudeAndLog(accel_x, accel_y, accel_z, &accel);
 
-                    /* Get pressure and temperature */
+                /* Get pressure and temperature */
                 retval = barometerGetAndLog(&curr_pres, &curr_temp);
-                baseVars.base_pres = curr_pres;
-                baseVars.base_temp = curr_temp;
                 if (retval != STATUS_OK) {
                     break;
                 }
+
+                baseVars.base_pres = curr_pres;
+                baseVars.base_temp = curr_temp;
 
                 if (testStandby(accel, baseVars.base_alt)) {
 
@@ -532,7 +559,7 @@ int main()
 
             case APDET_STATE_STANDBY:
             {
-                    /* Get acceleration */
+                /* Get acceleration */
                 status_t retval = accelerometerGetAndLog(&accel_x, &accel_y, &accel_z);
                 if (retval != STATUS_OK) {
                     break;
@@ -542,28 +569,28 @@ int main()
                 accelGetMagnitudeAndLog(accel_x, accel_y, accel_z, &accel);
 
                 if (detectLaunch(accel)) {
-                        /* 1 means we have a passing check */
+                    /* 1 means we have a passing check */
                     state_change_check_arr[state_change_check_idx] = 1;
-                        /* increment index with wrap-around */
+                    /* increment index with wrap-around */
                     state_change_check_idx = (state_change_check_idx + 1) % ARR_SIZE;
                     if (sumArrElems(state_change_check_arr, ARR_SIZE) >= NUM_CHECKS) {
                         changeStateAndResetChecks(APDET_STATE_POWERED_ASCENT, &curr_state,
                           state_change_check_arr, ARR_SIZE, &state_change_check_idx);
                     }
                 } else {
-                        /* 0 means we have a failing check */
+                    /* 0 means we have a failing check */
                     state_change_check_arr[state_change_check_idx] = 0;
                     state_change_check_idx = (state_change_check_idx + 1) % ARR_SIZE;
 
                         /* Update pressure and temperature */
                     retval = barometerGetAndLog(&curr_pres, &curr_temp);
-                    baseVars.base_pres = curr_pres;
-                    baseVars.base_temp = curr_temp;
                     if (retval != STATUS_OK) {
                         break;
                     }
-
-                        /* Update base values */
+                    baseVars.base_pres = curr_pres;
+                    baseVars.base_temp = curr_temp;
+                    
+                    /* Update base values */
                     writeBaseVars(baseVars);
                 }
                 break;
@@ -690,13 +717,13 @@ int main()
 
             case APDET_STATE_LANDED:
             {
-                    /* LANDED STATE */
+                /* LANDED STATE */
                 break;
             }
 
             default:
             {
-                    /* ERROR STATE */
+                /* ERROR STATE */
                 break;
             }   
         }
