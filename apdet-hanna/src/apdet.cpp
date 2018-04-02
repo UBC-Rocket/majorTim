@@ -396,7 +396,7 @@ bool nearingApogee(int16_t accel, float base_alt, float curr_pres, float height)
   */
 bool testApogee(float base_alt, float curr_pres, float *prev_height, float height)
 {
-    bool apogee = ((height - *prev_height) <= 0)
+    bool apogee = ((height - *prev_height) <= 0);
     *prev_height = height;
 
     return apogee;
@@ -422,7 +422,7 @@ bool detectMainAlt(float base_alt, float curr_pres, float height)
   */
 bool detectLanded(float base_alt, float curr_pres, float *prev_height, float height)
 {
-    bool landed = ((height - *prev_height) <= EPSILON)
+    bool landed = ((height - *prev_height) <= EPSILON);
     *prev_height = height;
 
     return landed;
@@ -466,8 +466,9 @@ int main()
         float median = getMedian(base_alt_arr, ARR_SIZE);
         baseVars.base_alt = median;
     } else {
+        /* Recover altitude only */
         baseVarStruct temp;
-        recoverAll(&temp);
+        recoverBaseVars(&temp);
         baseVars.base_alt = temp.base_alt;
     }
 
@@ -531,7 +532,7 @@ int main()
 
 
         switch(curr_state) {
-            
+
             case APDET_STATE_TESTING:
             {
                 if (testStandby(accel, baseVars.base_alt)) {
