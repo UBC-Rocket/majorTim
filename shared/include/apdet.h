@@ -38,4 +38,11 @@ static FILE* logFP;
 static FILE* baseVarsFP;
 static FILE* currStateFP;
 
+struct baseVarStruct
+{
+    float base_pres;
+    float base_temp;
+    float base_alt;
+};
+
 #endif
