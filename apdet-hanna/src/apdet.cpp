@@ -324,10 +324,8 @@ TODO LIST
 - Incorporate Kalman data filtering?
 - Make sure a program clears the SD card / base variable file before every flight BUT NOT AFTER A BLACKOUT
 - Documentation updates
-- Get accelerometer log to find maximum variation of the accelerometer at standby
 - Comments in main
-- Try to move gets into while before the switch statement for logging purposes
-    - for altitudes,
+- Review testStandby and LOCN_ALTITUDE
 */
 
 /**
@@ -338,10 +336,10 @@ TODO LIST
   * @param  curr_alt    The current altitude (if in standby, this will be the base altitude).
   * @return Boolean
   */
-bool testStandby(int16_t accel, float curr_alt)
+bool testStandby(int16_t accel, float curr_height)
 {
     bool standby_accel = (fabs(accel - 1000) <= STBY_ACCEL_EPSILON);
-    bool standby_alt = (fabs(curr_alt - LOCN_ALT) <= MIN_APOGEE_DEPLOY); /* In case we launch on a hill */
+    bool standby_height = (curr_height <= EPSILON);
 
     return (standby_accel && standby_alt);
 }
@@ -535,8 +533,8 @@ int main()
 
             case APDET_STATE_TESTING:
             {
-                if (testStandby(accel, baseVars.base_alt)) {
-                    /* Update and write base values */
+                if (testStandby(accel, curr_height)) {
+                    /* Update and write pressure and temperature */
                     baseVars.base_pres = curr_pres;
                     baseVars.base_temp = curr_temp;
                     writeBaseVars(baseVars);
