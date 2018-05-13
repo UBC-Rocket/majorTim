@@ -341,7 +341,7 @@ bool testStandby(int16_t accel, float curr_height)
     bool standby_accel = (fabs(accel - 1000) <= STBY_ACCEL_EPSILON);
     bool standby_height = (curr_height <= EPSILON);
 
-    return (standby_accel && standby_alt);
+    return (standby_accel && standby_height);
 }
 
 /**

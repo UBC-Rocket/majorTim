@@ -8,8 +8,8 @@
 #define LAUNCH_ACCEL                    1050    /* (millig)   assume we've launched when we detect accel >= 1050 */
 #define STBY_ACCEL_EPSILON                50    /* (millig)   maximum variation of the accelerometer at standby. 
                                                                 Should be LAUNCH_ACCEL - 1 */
-#define ACCEL_NEAR_APOGEE                150    /* (millig)   accel magnitude <= 150 indicates we are close to apogee */
-#define MAIN_DEPLOY_HEIGHT             60.96    /* (m)        height below which we deploy main (equivalent to 200 ft) */
+#define ACCEL_NEAR_APOGEE               1150    /* (millig)   accel magnitude <= 150 indicates we are close to apogee */
+#define MAIN_DEPLOY_HEIGHT             609.6    /* (m)        height below which we deploy main (equivalent to 2000 ft) */
 
 /* Constants for safety checks */
 #define NUM_CHECKS                         5    /* each condition has to pass 5 times */
