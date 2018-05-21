@@ -7,8 +7,7 @@
 #include "SDBlockDevice.h"
 #include "FATFileSystem.h"
 
-
-DigitalOut led1(LED1);
+DigitalOut led(LED, 0);
 
 // Instantiate the SDBlockDevice by specifying the SPI pins connected to the SDCard
 // socket. The PINS are:
@@ -29,8 +28,6 @@ int main(void) {
     int16_t y = 0;
     int16_t z = 0;
 
-    MS5607I2C ms5607(I2C_SDA, I2C_SCL, true);
-
     while (barometerInit() != STATUS_OK) {
         printf("ERROR: barometer initialization failed :(\r\n");
         wait(SHARETEST_INTERVAL);
@@ -41,7 +38,6 @@ int main(void) {
         wait(SHARETEST_INTERVAL);
     }
 
-    //append sensor data
     FILE* f = fopen(sdSensorDataPath, "a");
     while (f == NULL) {
         printf("ERROR: sd initialization failed :(\r\n");
@@ -49,8 +45,9 @@ int main(void) {
         f = fopen(sdSensorDataPath, "a");
     }
 
+    led.write(1);
+
     while (true) {
-        led1 = !led1;
         wait(SHARETEST_INTERVAL);
 
         if (barometerGetCompensatedValues(&p, &t) != STATUS_OK) {
@@ -59,17 +56,12 @@ int main(void) {
             printf("Pressure: %.2f Temperature: %.2f\r\n", p, t);
             fprintf(f, "p: %.2f t: %.2f\n", p, t); //log to sd
         }
-        /*ALT DRIVER*/
-        // printf("ALT DRIVER - ");
-        // printf("Pressure:    %.0f\t", ms5607.getPressure());
-        // printf("Temperature: %.2f\n", ms5607.getTemperature());
-        /*END ALT DRIVER*/
 
         if (accelerometerGetData(&x, &y, &z) != STATUS_OK) {
             printf("ERROR: accelerometer get data failed :(\r\n");
         } else {
             printf("X: %" PRId16 " Y: %" PRId16 " Z: %" PRId16 "\r\n", x, y, z);
-            fprintf(f, "X: %" PRId16 " Y: %" PRId16 " Z: %" PRId16 "\r\n", x, y, z); //log to sd
+            fprintf(f, "X: %" PRId16 " Y: %" PRId16 " Z: %" PRId16 "\r\n", x, y, z);
         }
     }
 }

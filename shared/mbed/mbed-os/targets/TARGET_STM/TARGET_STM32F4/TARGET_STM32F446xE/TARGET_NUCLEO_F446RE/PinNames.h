@@ -88,7 +88,22 @@ typedef enum {
     PC_14 = 0x2E,
     PC_15 = 0x2F,
 
+    PD_0  = 0x30,
+    PD_1  = 0x31,
     PD_2  = 0x32,
+    PD_3  = 0x33,
+    PD_4  = 0x34,
+    PD_5  = 0x35,
+    PD_6  = 0x36,
+    PD_7  = 0x37,
+    PD_8  = 0x38,
+    PD_9  = 0x39,
+    PD_10 = 0x3A,
+    PD_11 = 0x3B,
+    PD_12 = 0x3C,
+    PD_13 = 0x3D,
+    PD_14 = 0x3E,
+    PD_15 = 0x3F,
 
     PH_0  = 0x70,
     PH_1  = 0x71,
@@ -134,6 +149,23 @@ typedef enum {
     STDIO_UART_RX = PA_3,
 #endif
 
+    /* CUSTOM PINS */
+    LED             = PB_12,
+    IG1_PWM         = PB_13,
+    IG1_TEST_OUT    = PD_11,
+    IG1_TEST_IN     = PD_10,
+    IG2_PWM         = PB_14,
+    IG2_TEST_OUT    = PD_8,
+    IG2_TEST_IN     = PB_15,
+
+    I2C_SCL     = PB_6,
+    I2C_SDA     = PB_7,
+
+    SPI_CS      = PA_4,
+    SPI_SCK     = PA_5,
+    SPI_MISO    = PA_6,
+    SPI_MOSI    = PA_7,
+
     // Generic signals namings
     LED1        = PA_5,
     LED2        = PA_5,
@@ -141,18 +173,13 @@ typedef enum {
     LED4        = PA_5,
     LED_RED     = LED1,
     USER_BUTTON = PC_13,
+
     // Standardized button names
     BUTTON1 = USER_BUTTON,
     SERIAL_TX   = STDIO_UART_TX,
     SERIAL_RX   = STDIO_UART_RX,
     USBTX       = STDIO_UART_TX,
     USBRX       = STDIO_UART_RX,
-    I2C_SCL     = PB_8,
-    I2C_SDA     = PB_9,
-    SPI_MOSI    = PA_7,
-    SPI_MISO    = PA_6,
-    SPI_SCK     = PA_5,
-    SPI_CS      = PB_6,
     PWM_OUT     = PB_3,
 
     //USB pins
