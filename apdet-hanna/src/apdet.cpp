@@ -307,6 +307,7 @@ int sumArrElems(int arr[], int size)
 float getMedian(float arr[], int size) {
     float temp;
     int i, j;
+
     /* Selection sort */
     for(i = 0; i < size - 1; i++) {
         for(j = i + 1; j < size; j++) {
@@ -317,8 +318,9 @@ float getMedian(float arr[], int size) {
             }
         }
     }
-    if(size % 2 == 0) {
-        return((arr[size/2] + arr[size/2 - 1]) / 2.0);
+
+    if (size % 2 == 0) {
+        return ((arr[size/2] + arr[size/2 - 1]) / 2.0);
     } else {
         return arr[size/2];
     }
@@ -331,10 +333,8 @@ TODO LIST
 - Incorporate Kalman data filtering?
 - Make sure a program clears the SD card / base variable file before every flight BUT NOT AFTER A BLACKOUT
 - Documentation updates
-- Get accelerometer log to find maximum variation of the accelerometer at standby
 - Comments in main
-- Try to move gets into while before the switch statement for logging purposes
-    - for altitudes,
+- Review testStandby and LOCN_ALTITUDE
 */
 
 /**
@@ -345,11 +345,12 @@ TODO LIST
   * @param  curr_alt    The current altitude (if in standby, this will be the base altitude).
   * @return Boolean
   */
-bool testStandby(int16_t accel, float curr_alt)
+bool testStandby(int16_t accel, float curr_height)
 {
     bool standby_accel = (fabs(accel - 1000) <= STBY_ACCEL_EPSILON);
-    bool standby_alt = (fabs(curr_alt - LOCN_ALT) <= MIN_APOGEE_DEPLOY); /* In case we launch on a hill */
-    return (standby_accel && standby_alt);
+    bool standby_height = (curr_height <= EPSILON);
+
+    return (standby_accel && standby_height);
 }
 
 /**
@@ -372,11 +373,12 @@ bool detectBurnout(int16_t *prev_accel, int16_t accel)
 {
     /*
     Barometer data is probably not be stable at this point.
-    TODO: Accelerometer data may not be either. In that case, we'll just wait ~4s for burnout.
+    TODO: Accelerometer data may not be stable either. In that case, we'll just wait ~4s for burnout.
      (depends on rocket though)
      */
     bool burnout = (accel <= *prev_accel);
     *prev_accel = accel;
+
     return burnout;
 }
 
@@ -387,11 +389,8 @@ bool detectBurnout(int16_t *prev_accel, int16_t accel)
   * @param  curr_pres   The current pressure.
   * @return Boolean
   */
-bool nearingApogee(int16_t accel, float base_alt, float curr_pres)
+bool nearingApogee(int16_t accel, float base_alt, float curr_pres, float height)
 {
-    float height;
-    calcHeight(curr_pres, base_alt, &height);
-
     return (accel <= ACCEL_NEAR_APOGEE && height > MIN_APOGEE_DEPLOY);
 }
 
@@ -402,13 +401,12 @@ bool nearingApogee(int16_t accel, float base_alt, float curr_pres)
   * @param  height      The last recorded height.
   * @return Boolean
   */
-bool testApogee(float base_alt, float curr_pres, float *height)
+bool testApogee(float base_alt, float curr_pres, float *prev_height, float height)
 {
+    bool apogee = ((height - *prev_height) <= 0);
+    *prev_height = height;
 
-    float prev_height = *height;
-    calcHeight(curr_pres, base_alt, height);
-
-    return ((*height - prev_height) <= 0);
+    return apogee;
 }
 
 /**
@@ -417,11 +415,8 @@ bool testApogee(float base_alt, float curr_pres, float *height)
   * @param  curr_pres   The current pressure.
   * @return Boolean
   */
-bool detectMainAlt(float base_alt, float curr_pres)
+bool detectMainAlt(float base_alt, float curr_pres, float height)
 {
-    float height;
-    calcHeight(curr_pres, base_alt, &height);
-
     return (height <= MAIN_DEPLOY_HEIGHT);
 }
 
@@ -432,19 +427,18 @@ bool detectMainAlt(float base_alt, float curr_pres)
   * @param  height      The last recorded height.
   * @return Boolean
   */
-bool detectLanded(float base_alt, float curr_pres, float *height)
+bool detectLanded(float base_alt, float curr_pres, float *prev_height, float height)
 {
-    float prev_height = *height;
-    calcHeight(curr_pres, base_alt, height);
+    bool landed = ((height - *prev_height) <= EPSILON);
+    *prev_height = height;
 
-    return ((*height - prev_height) <= EPSILON);
+    return landed;
 }
 
 /* MAIN ===================================================================================================== */
 
 /**
   * @brief Apogee Detection board routine - hardware-independent implementation.
-  * @return Status
   */
 int main()
 {
@@ -478,30 +472,36 @@ int main()
         }
         float median = getMedian(base_alt_arr, ARR_SIZE);
         baseVars.base_alt = median;
+    } else {
+        /* Recover altitude only */
+        baseVarStruct temp;
+        recoverBaseVars(&temp);
+        baseVars.base_alt = temp.base_alt;
     }
 
     logFP = fopen(logPath, "a");
     baseVarsFP = fopen(sdBaseVarsPath, "w");
     currStateFP = fopen(sdCurrStatePath, "w");
 
-    /* For detectBurnout function */
+    /* To store previous accel in detectBurnout function */
     int16_t bo_det_accel  = 0;
 
-    /* For testApogee function */
+    /* To store previous height in testApogee function */
     float test_ap_height  = 0;
 
-    /* For detectLanded function */
+    /* To store previous height in detectLanded function */
     float land_det_height = 0;
 
-    /* state transition checking array */
+    /* State transition checking array */
     int state_change_check_arr[ARR_SIZE];
 
-    /* current index of state transition checking array */
+    /* Current index of state transition checking array */
     int state_change_check_idx;
 
-    /* set all array elements to 0 and idx to 0 */
+    /* Set all state_change_check_arr elements to 0 and state_change_check_idx to 0 */
     resetCheckArrAndIdx(state_change_check_arr, ARR_SIZE, &state_change_check_idx);
 
+    /* Enter state machine into APDET_STATE_TESTING state */
     state_t curr_state;
     changeStateAndResetChecks(APDET_STATE_TESTING, &curr_state,
       state_change_check_arr, ARR_SIZE, &state_change_check_idx);
@@ -518,56 +518,44 @@ int main()
         int16_t accel, accel_x, accel_y, accel_z;
         float curr_pres, curr_temp, curr_height;
         
-        // status_t retval;
+        status_t retval;
 
-        // /* Get acceleration */
-        // retval = accelerometerGetAndLog(&accel_x, &accel_y, &accel_z);
-        // if (retval != STATUS_OK) {
-        //     break;
-        // }
+        /* Get acceleration */
+        retval = accelerometerGetAndLog(&accel_x, &accel_y, &accel_z);
+        if (retval != STATUS_OK) {
+            break;
+        }
 
-        // /* Get acceleration magnitude */
-        // accelGetMagnitudeAndLog(accel_x, accel_y, accel_z, &accel);
-        // if (retval != STATUS_OK) {
-        //     break;
-        // }
+        /* Get acceleration magnitude */
+        retval = accelGetMagnitudeAndLog(accel_x, accel_y, accel_z, &accel);
+        if (retval != STATUS_OK) {
+            break;
+        }
 
-        // /* Get pressure and temperature */
-        // retval = barometerGetAndLog(&curr_pres, &curr_temp);
-        // if (retval != STATUS_OK) {
-        //     break;
-        // }
+        /* Get pressure and temperature */
+        retval = barometerGetAndLog(&curr_pres, &curr_temp);
+        if (retval != STATUS_OK) {
+            break;
+        }
 
-        // /* Get current relative altitude (height above ground) */
-        // calcHeight(curr_pres, base_alt, &curr_height);
+        /* Get current relative altitude (height above ground) */
+        calcHeight(curr_pres, baseVars.base_alt, &curr_height);
 
 
         switch(curr_state) {
+
             case APDET_STATE_TESTING:
             {
-                /* Get acceleration */
-                status_t retval = accelerometerGetAndLog(&accel_x, &accel_y, &accel_z);
-                if (retval != STATUS_OK) {
-                    break;
-                }
-                accelGetMagnitudeAndLog(accel_x, accel_y, accel_z, &accel);
-
-                /* Get pressure and temperature */
-                retval = barometerGetAndLog(&curr_pres, &curr_temp);
-                if (retval != STATUS_OK) {
-                    break;
-                }
-
-                baseVars.base_pres = curr_pres;
-                baseVars.base_temp = curr_temp;
-
-                if (testStandby(accel, baseVars.base_alt)) {
-
-                    /* Update base values */
+                if (testStandby(accel, curr_height)) {
+                    /* Update and write pressure and temperature */
+                    baseVars.base_pres = curr_pres;
+                    baseVars.base_temp = curr_temp;
                     writeBaseVars(baseVars);
+                    /* Change state */
                     changeStateAndResetChecks(APDET_STATE_STANDBY, &curr_state,
                       state_change_check_arr, ARR_SIZE, &state_change_check_idx);
                 } else {
+                    /* recover base variables and state */
                     recoverAll(&curr_state, &baseVars);
                 }
                 break;
@@ -575,20 +563,11 @@ int main()
 
             case APDET_STATE_STANDBY:
             {
-                /* Get acceleration */
-                status_t retval = accelerometerGetAndLog(&accel_x, &accel_y, &accel_z);
-                if (retval != STATUS_OK) {
-                    break;
-                }
-
-                /* Calculate magnitude of acceleration */
-                accelGetMagnitudeAndLog(accel_x, accel_y, accel_z, &accel);
-
                 if (detectLaunch(accel)) {
+
                     /* 1 means we have a passing check */
                     state_change_check_arr[state_change_check_idx] = 1;
-                    /* increment index with wrap-around */
-                    state_change_check_idx = (state_change_check_idx + 1) % ARR_SIZE;
+
                     if (sumArrElems(state_change_check_arr, ARR_SIZE) >= NUM_CHECKS) {
                         changeStateAndResetChecks(APDET_STATE_POWERED_ASCENT, &curr_state,
                           state_change_check_arr, ARR_SIZE, &state_change_check_idx);
@@ -596,30 +575,19 @@ int main()
                 } else {
                     /* 0 means we have a failing check */
                     state_change_check_arr[state_change_check_idx] = 0;
-                    state_change_check_idx = (state_change_check_idx + 1) % ARR_SIZE;
 
-                        /* Update pressure and temperature */
-                    retval = barometerGetAndLog(&curr_pres, &curr_temp);
-                    if (retval != STATUS_OK) {
-                        break;
-                    }
+                    /* Update and write base values */
                     baseVars.base_pres = curr_pres;
                     baseVars.base_temp = curr_temp;
-                    
-                    /* Update base values */
                     writeBaseVars(baseVars);
                 }
+                /* increment index with wrap-around */
+                state_change_check_idx = (state_change_check_idx + 1) % ARR_SIZE;
                 break;
             }
 
             case APDET_STATE_POWERED_ASCENT:
             {
-                status_t retval = accelerometerGetAndLog(&accel_x, &accel_y, &accel_z);
-                if (retval != STATUS_OK) {
-                    break;
-                }
-                accelGetMagnitudeAndLog(accel_x, accel_y, accel_z, &accel);
-                
                 if (detectBurnout(&bo_det_accel, accel)) {
                     state_change_check_arr[state_change_check_idx] = 1;
                     if (sumArrElems(state_change_check_arr, ARR_SIZE) >= NUM_CHECKS) {
@@ -635,16 +603,7 @@ int main()
 
             case APDET_STATE_COASTING:
             {
-                status_t retval = accelerometerGetAndLog(&accel_x, &accel_y, &accel_z);
-                if (retval != STATUS_OK) {
-                    break;
-                }
-                accelGetMagnitudeAndLog(accel_x, accel_y, accel_z, &accel);
-                retval = barometerGetAndLog(&curr_pres, &curr_temp);
-                if (retval != STATUS_OK) {
-                    break;
-                }
-                if (nearingApogee(accel, baseVars.base_alt, curr_pres)) {
+                if (nearingApogee(accel, baseVars.base_alt, curr_pres, curr_height)) {
                     state_change_check_arr[state_change_check_idx] = 1;
                     if (sumArrElems(state_change_check_arr, ARR_SIZE) >= NUM_CHECKS) {
                         changeStateAndResetChecks(APDET_STATE_APOGEE_TESTING, &curr_state,
@@ -659,11 +618,7 @@ int main()
 
             case APDET_STATE_APOGEE_TESTING:
             {
-                status_t retval = barometerGetAndLog(&curr_pres, &curr_temp);
-                if (retval != STATUS_OK) {
-                    break;
-                }
-                if (testApogee(baseVars.base_alt, curr_pres, &test_ap_height)) {
+                if (testApogee(baseVars.base_alt, curr_pres, &test_ap_height, curr_height)) {
                     state_change_check_arr[state_change_check_idx] = 1;
                     if (sumArrElems(state_change_check_arr, ARR_SIZE) >= NUM_CHECKS) {
                         changeStateAndResetChecks(APDET_STATE_DEPLOY_DROGUE_AND_PAYLOAD, &curr_state,
@@ -687,11 +642,7 @@ int main()
 
             case APDET_STATE_INITIAL_DESCENT:
             {
-                status_t retval = barometerGetAndLog(&curr_pres, &curr_temp);
-                if (retval != STATUS_OK) {
-                    break;
-                }
-                if (detectMainAlt(baseVars.base_alt, curr_pres)) {
+                if (detectMainAlt(baseVars.base_alt, curr_pres, curr_height)) {
                     state_change_check_arr[state_change_check_idx] = 1;
                     if (sumArrElems(state_change_check_arr, ARR_SIZE) >= NUM_CHECKS) {
                         changeStateAndResetChecks(APDET_STATE_DEPLOY_MAIN, &curr_state,
@@ -714,11 +665,7 @@ int main()
 
             case APDET_STATE_FINAL_DESCENT:
             {
-                status_t retval = barometerGetAndLog(&curr_pres, &curr_temp);
-                if (retval != STATUS_OK) {
-                    break;
-                }
-                if (detectLanded(baseVars.base_alt, curr_pres, &land_det_height)){
+                if (detectLanded(baseVars.base_alt, curr_pres, &land_det_height, curr_height)){
                     state_change_check_arr[state_change_check_idx] = 1;
                     if (sumArrElems(state_change_check_arr, ARR_SIZE) >= NUM_CHECKS) {
                         changeStateAndResetChecks(APDET_STATE_LANDED, &curr_state,
