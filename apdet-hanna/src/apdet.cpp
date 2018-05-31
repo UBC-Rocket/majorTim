@@ -325,7 +325,9 @@ TODO LIST
 - Make sure a program clears the SD card / base variable file before every flight BUT NOT AFTER A BLACKOUT
 - Documentation updates
 - Comments in main
-- Review testStandby and LOCN_ALTITUDE
+- Timer backup (ask Joren for state times)
+- Tweak ACCEL_NEAR_APOGEE
+- Implement rolling average
 */
 
 /**
@@ -563,7 +565,20 @@ int main()
                     /* 0 means we have a failing check */
                     state_change_check_arr[state_change_check_idx] = 0;
 
+                    /* Update base altitude (rolling median) and base pres and temp */
+                    float base_alt_arr[ARR_SIZE];
+                    /* Insert old base altitude as first data point */
+                    base_alt_arr[0] = baseVars.base_alt;
+                    float curr_alt; /* curr_pres and curr_temp declared in while body */
+                    for (int i = 1; i < ARR_SIZE; i++) {
+                        barometerGetAndLog(&curr_pres, &curr_temp);
+                        calcAlt(curr_pres, &curr_alt);
+                        base_alt_arr[i] = curr_alt;
+                    }
+                    float median = getMedian(base_alt_arr, ARR_SIZE);
+
                     /* Update and write base values */
+                    baseVars.base_alt = median;
                     baseVars.base_pres = curr_pres;
                     baseVars.base_temp = curr_temp;
                     writeBaseVars(baseVars);
