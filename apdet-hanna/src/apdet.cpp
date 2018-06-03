@@ -29,7 +29,7 @@ DigitalIn ig2_test_in(IG2_TEST_IN);
   */
 status_t deployDrogueAndPayload()
 {
-    /* signal to the ignitor */
+    /* Signal to the ignitor */
     ig1_pwm.write(0.5);
     /* Logging */
     int timestamp = timer.read_ms();
@@ -46,7 +46,7 @@ status_t deployDrogueAndPayload()
   */
 status_t deployMain()
 {
-    /* signal to the ignitor */
+    /* Signal to the ignitor */
     ig2_pwm.write(0.5);
     /* Logging */
     int timestamp = timer.read_ms();
@@ -582,7 +582,7 @@ int main()
                     float base_alt_arr[ARR_SIZE];
                     /* Insert old base altitude as first data point */
                     base_alt_arr[0] = baseVars.base_alt;
-                    float curr_alt; /* curr_pres and curr_temp declared in while body */
+                    float curr_alt; /* curr_pres and curr_temp declared in while loop body */
                     for (int i = 1; i < ARR_SIZE; i++) {
                         barometerGetAndLog(&curr_pres, &curr_temp);
                         calcAlt(curr_pres, &curr_alt);
