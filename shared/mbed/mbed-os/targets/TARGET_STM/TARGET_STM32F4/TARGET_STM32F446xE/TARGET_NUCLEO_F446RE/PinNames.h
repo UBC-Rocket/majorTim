@@ -151,10 +151,10 @@ typedef enum {
 
     /* CUSTOM PINS */
     LED             = PB_12,
-    IG1_PWM         = PB_13,
+    IG1             = PB_13,
     IG1_TEST_OUT    = PD_11,
     IG1_TEST_IN     = PD_10,
-    IG2_PWM         = PB_14,
+    IG2             = PB_14,
     IG2_TEST_OUT    = PD_8,
     IG2_TEST_IN     = PB_15,
 

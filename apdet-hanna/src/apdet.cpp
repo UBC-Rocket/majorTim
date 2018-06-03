@@ -14,10 +14,10 @@ Hardware-independent functions.
 Timer timer;
 
 DigitalOut led(LED, 0);
-PwmOut ig1_pwm(IG1_PWM);
+DigitalOut ig1(IG1, 0);
 DigitalOut ig1_test_out(IG1_TEST_OUT, 1);
 DigitalIn ig1_test_in(IG1_TEST_IN);
-PwmOut ig2_pwm(IG2_PWM);
+DigitalOut ig2(IG2, 0);
 DigitalOut ig2_test_out(IG2_TEST_OUT, 1);
 DigitalIn ig2_test_in(IG2_TEST_IN);
 
@@ -30,7 +30,7 @@ DigitalIn ig2_test_in(IG2_TEST_IN);
 status_t deployDrogueAndPayload()
 {
     /* signal to the ignitor */
-    ig1_pwm.write(0.5);
+    ig1.write(1);
     /* Logging */
     int timestamp = timer.read_ms();
     if (fprintf(logFP, "[%d] Drogue and payload deployed but not really.\n", timestamp) < 20) {
@@ -47,7 +47,7 @@ status_t deployDrogueAndPayload()
 status_t deployMain()
 {
     /* signal to the ignitor */
-    ig2_pwm.write(0.5);
+    ig2.write(1);
     /* Logging */
     int timestamp = timer.read_ms();
     if (fprintf(logFP, "[%d] Main deployed but not really.\n", timestamp) < 20) {
@@ -505,10 +505,6 @@ int main()
     state_t curr_state;
     changeStateAndResetChecks(APDET_STATE_TESTING, &curr_state,
       state_change_check_arr, ARR_SIZE, &state_change_check_idx);
-
-    /* set the pwm frequency (note if these use the same timer the period must be the same) */
-    ig1_pwm.period_ms(2);
-    ig2_pwm.period_ms(2);
 
     /* turn on LED to indicate initialization has succeeded */
     led.write(1);
