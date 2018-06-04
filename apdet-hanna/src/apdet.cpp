@@ -281,7 +281,7 @@ status_t recoverAll(state_t *curr_state, baseVarStruct *baseVars)
 }
 
 /**
-  * @brief  Determines if a file has been previously created or used
+  * @brief  Determines if a file has been previously created and/or written to.
   * @param  fp          Pointer to a file
   * @return Boolean
   */
@@ -299,7 +299,7 @@ bool isNullOrEmpty(FILE* fp)
 }
 
 /**
-  * @brief  Sums the elements of an array
+  * @brief  Sums the elements of an array.
   * @param  arr[]       Array of integers
   * @param  size        Size of arr[]
   * @return int
@@ -314,7 +314,7 @@ int sumArrElems(int arr[], int size)
 }
 
 /**
-  * @brief  Computes the median of the elements of an array
+  * @brief  Sorts an array and computes the median of its elements.
   * @param  arr[]       Array of floats
   * @param  size        Size of arr[]
   * @return float
@@ -376,7 +376,7 @@ bool detectLaunch(int16_t accel)
 bool detectBurnout(int16_t *prev_accel, int16_t accel)
 {
     /*
-    Barometer data is probably not be stable at this point.
+    Barometer data is probably not stable at this point.
     TODO: Accelerometer data may not be stable either. In that case, we'll just wait 
     ~7s for burnout in 10k rockets and (TODO) for 30k rockets
      */
@@ -405,10 +405,10 @@ bool nearingApogee(int16_t accel, float height)
   */
 bool testApogee(float *prev_height, float height)
 {
-    bool apogee = ((height - *prev_height) <= 0);
+    bool at_apogee = ((height - *prev_height) <= 0);
     *prev_height = height;
 
-    return apogee;
+    return at_apogee;
 }
 
 /**
