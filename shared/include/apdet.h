@@ -1,14 +1,12 @@
 #ifndef APDET_H
 #define APDET_H
 
-/* TODO: CHANGE MAIN_DEPLOY_HEIGHT BACK TO 609.6 m (2000 ft) FOR THE REAL LAUNCH */
-
 /* Constants used in apdet.cpp */
 #define MIN_APOGEE_DEPLOY                 20    /* (m)        height below which we don't deploy drogue, payload or main */
 #define LAUNCH_ACCEL                    1050    /* (millig)   assume we've launched when we detect accel >= 1050 */
 #define STBY_ACCEL_EPSILON                50    /* (millig)   maximum variation of the accelerometer at standby. 
                                                                 Should be LAUNCH_ACCEL - 1 */
-#define ACCEL_NEAR_APOGEE               1150    /* (millig)   accel magnitude <= 150 indicates we are close to apogee */
+#define ACCEL_NEAR_APOGEE               1600    /* (millig)   accel magnitude <= 600 indicates we are close to apogee */
 #define MAIN_DEPLOY_HEIGHT             609.6    /* (m)        height below which we deploy main (equivalent to 2000 ft) */
 
 /* Constants for safety checks */

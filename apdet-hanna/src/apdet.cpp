@@ -9,6 +9,16 @@ Hardware-independent functions.
 #include "FATFileSystem.h"
 #include <apdet.h>
 
+
+/*
+TODO LIST
+- Incorporate Kalman data filtering?
+- Make sure a program clears the SD card / base variable file before every flight BUT NOT AFTER A BLACKOUT
+- Documentation updates
+- Timer backup (ask Joren for state times)
+- Tweak ACCEL_NEAR_APOGEE
+*/
+
 /* STATIC VARS ============================================================================================== */
 
 Timer timer;
@@ -29,11 +39,11 @@ DigitalIn ig2_test_in(IG2_TEST_IN);
   */
 status_t deployDrogueAndPayload()
 {
-    /* signal to the ignitor */
+    /* Signal to the ignitor */
     ig1.write(1);
     /* Logging */
     int timestamp = timer.read_ms();
-    if (fprintf(logFP, "[%d] Drogue and payload deployed but not really.\n", timestamp) < 20) {
+    if (fprintf(logFP, "[%d] Drogue and payload deployed.\n", timestamp) < 20) {
         return STATUS_ERROR; //must log at least 20 chars
     }
     fflush(logFP);
@@ -41,16 +51,16 @@ status_t deployDrogueAndPayload()
 }
 
 /**
-  * @brief  Main deployment driver.
+  * @brief  Main deployment actuator.
   * @return Status
   */
 status_t deployMain()
 {
-    /* signal to the ignitor */
+    /* Signal to the ignitor */
     ig2.write(1);
     /* Logging */
     int timestamp = timer.read_ms();
-    if (fprintf(logFP, "[%d] Main deployed but not really.\n", timestamp) < 20) {
+    if (fprintf(logFP, "[%d] Main deployed.\n", timestamp) < 20) {
         return STATUS_ERROR; //must log at least 20 characters
     }
     fflush(logFP);
@@ -98,10 +108,10 @@ status_t calcHeight(float curr_pres, float base_alt, float *height)
 
 /**
   * @brief  Computes acceleration magnitude.
-  * @param  accel_x     The x-component of the acceleration.
-  * @param  accel_y     The y-component of the acceleration.
-  * @param  accel_z     The z-component of the acceleration.
-  * @param  accel       A pointer to store the magnitude of the acceleration.
+  * @param  accel_x     The x-component of acceleration.
+  * @param  accel_y     The y-component of acceleration.
+  * @param  accel_z     The z-component of acceleration.
+  * @param  accel       A pointer to store the magnitude of acceleration.
   * @return Status
   */
 status_t accelGetMagnitudeAndLog(int16_t accel_x, int16_t accel_y, int16_t accel_z, int16_t *accel)
@@ -121,9 +131,9 @@ status_t accelGetMagnitudeAndLog(int16_t accel_x, int16_t accel_y, int16_t accel
 
 /**
   * @brief  Queries and logs acceleration data from accelerometer.
-  * @param  accel_x     A pointer to store the x-component of the acceleration.
-  * @param  accel_y     A pointer to store the y-component of the acceleration.
-  * @param  accel_z     A pointer to store the z-component of the acceleration.
+  * @param  accel_x     A pointer to store the x-component of acceleration.
+  * @param  accel_y     A pointer to store the y-component of acceleration.
+  * @param  accel_z     A pointer to store the z-component of acceleration.
   * @return Status
   */
 status_t accelerometerGetAndLog(int16_t *accel_x, int16_t *accel_y, int16_t *accel_z)
@@ -208,14 +218,13 @@ status_t changeStateAndResetChecks(state_t state, state_t *curr_state, int arr[]
 
 /**
   * @brief  Writes base variables to SD.
-  * @param  base_pres   Pressure at launch site.
-  * @param  base_temp   Temperature at launch site.
-  * @param  base_alt    Launch site altitude.
+  * @param  base_Vars   Struct containing base variables.
   * @return Status
   */
 status_t writeBaseVars(baseVarStruct baseVars) 
 {
     fseek(baseVarsFP, 0, SEEK_SET); //reset to 0 so we overwrite the old vars
+    //TODO: is this necessary if we opened the file to "write" mode?
     if (fwrite(&baseVars, sizeof(baseVars), 1, baseVarsFP) < 1) {
         return STATUS_ERROR; //must log the struct
     }
@@ -225,7 +234,7 @@ status_t writeBaseVars(baseVarStruct baseVars)
 
 /**
   * @brief  Recovers previous state from SD.
-  * @param  curr_state  Pointer holding the current state.
+  * @param  curr_state  Pointer to store the current state.
   * @return Status
   */
 status_t recoverLastState(state_t *curr_state)
@@ -241,9 +250,7 @@ status_t recoverLastState(state_t *curr_state)
 
 /**
   * @brief  Recovers base variables from SD.
-  * @param  base_pres   Pointer holding the pressure at the launch site.
-  * @param  base_temp   Pointer holding the temperature at the launch site.
-  * @param  base_alt    Pointer holding the launch site's altitude.
+  * @param  base_Vars   Pointer to store the base variables.
   * @return Status
   */
 status_t recoverBaseVars(baseVarStruct *baseVars) 
@@ -258,10 +265,8 @@ status_t recoverBaseVars(baseVarStruct *baseVars)
 
 /**
   * @brief  Recovers previous state and base variables from SD.
-  * @param  curr_state  Pointer holding the current state.
-  * @param  base_pres   Pointer holding the pressure at the launch site.
-  * @param  base_temp   Pointer holding the temperature at the launch site.
-  * @param  base_alt    Pointer holding the launch site's altitude.
+  * @param  curr_state  Pointer to store the current state.
+  * @param  base_Vars   Pointer to store the base variables.
   * @return Status
   */
 status_t recoverAll(state_t *curr_state, baseVarStruct *baseVars) 
@@ -270,12 +275,16 @@ status_t recoverAll(state_t *curr_state, baseVarStruct *baseVars)
     if (recoverLastState(curr_state) != STATUS_OK || 
         recoverBaseVars(baseVars) != STATUS_OK) {
         return STATUS_ERROR;
-    } else {
-        return STATUS_OK;
-    }
+} else {
+    return STATUS_OK;
+}
 }
 
-//returns true if a file exists and has 0 size
+/**
+  * @brief  Determines if a file has been previously created or used
+  * @param  fp          Pointer to a file
+  * @return Boolean
+  */
 bool isNullOrEmpty(FILE* fp)
 {
     if (fp == NULL) {
@@ -292,8 +301,8 @@ bool isNullOrEmpty(FILE* fp)
 /**
   * @brief  Sums the elements of an array
   * @param  arr[]       Array of integers
-  * @param  n           Size of arr[]
-  * @return Sum
+  * @param  size        Size of arr[]
+  * @return int
   */
 int sumArrElems(int arr[], int size)
 {
@@ -304,6 +313,12 @@ int sumArrElems(int arr[], int size)
     return sum;
 }
 
+/**
+  * @brief  Computes the median of the elements of an array
+  * @param  arr[]       Array of floats
+  * @param  size        Size of arr[]
+  * @return float
+  */
 float getMedian(float arr[], int size) {
     float temp;
     int i, j;
@@ -328,36 +343,23 @@ float getMedian(float arr[], int size) {
 
 /* ROCKET FLIGHT STATE TRANSITION DETECTION FUNCTIONS ======================================================= */
 
-/*
-TODO LIST
-- Incorporate Kalman data filtering?
-- Make sure a program clears the SD card / base variable file before every flight BUT NOT AFTER A BLACKOUT
-- Documentation updates
-- Comments in main
-- Timer backup (ask Joren for state times)
-- Tweak ACCEL_NEAR_APOGEE
-- Implement rolling average
-*/
-
 /**
   * @brief  Returns true if rocket is in standby (otherwise assume blackout occurred).
-  * @param  accel       The current magnitude of the acceleration.
-  * @param  curr_pres   The current pressure (if in standby, this will be the base pressure).
-  * @param  curr_temp   The current temperature (if in standby, this will be the base temperature).
-  * @param  curr_alt    The current altitude (if in standby, this will be the base altitude).
+  * @param  accel       The current magnitude of acceleration.
+  * @param  height      The current height relative to the ground.
   * @return Boolean
   */
-bool testStandby(int16_t accel, float curr_height)
+bool testStandby(int16_t accel, float height)
 {
     bool standby_accel = (fabs(accel - 1000) <= STBY_ACCEL_EPSILON);
-    bool standby_height = (curr_height <= EPSILON);
+    bool standby_height = (height <= EPSILON);
 
     return (standby_accel && standby_height);
 }
 
 /**
   * @brief  Detects launch.
-  * @param  accel       The current magnitude of the acceleration.
+  * @param  accel       The current magnitude of acceleration.
   * @return Boolean
   */
 bool detectLaunch(int16_t accel)
@@ -368,15 +370,15 @@ bool detectLaunch(int16_t accel)
 /**
   * @brief  Detects burnout.
   * @param  prev_accel  The last recorded magnitude of acceleration.
-  * @param  accel       The current magnitude of the acceleration.
+  * @param  accel       The current magnitude of acceleration.
   * @return Boolean
   */
 bool detectBurnout(int16_t *prev_accel, int16_t accel)
 {
     /*
     Barometer data is probably not be stable at this point.
-    TODO: Accelerometer data may not be stable either. In that case, we'll just wait ~4s for burnout.
-     (depends on rocket though)
+    TODO: Accelerometer data may not be stable either. In that case, we'll just wait 
+    ~7s for burnout in 10k rockets and (TODO) for 30k rockets
      */
     bool burnout = (accel <= *prev_accel);
     *prev_accel = accel;
@@ -386,24 +388,22 @@ bool detectBurnout(int16_t *prev_accel, int16_t accel)
 
 /**
   * @brief  Determines whether rocket is nearing apogee.
-  * @param  accel       The current magnitude of the acceleration.
-  * @param  base_alt    The base altitude.
-  * @param  curr_pres   The current pressure.
+  * @param  accel       The current magnitude of acceleration.
+  * @param  height      The current height.
   * @return Boolean
   */
-bool nearingApogee(int16_t accel, float base_alt, float curr_pres, float height)
+bool nearingApogee(int16_t accel, float height)
 {
     return (accel <= ACCEL_NEAR_APOGEE && height > MIN_APOGEE_DEPLOY);
 }
 
 /**
   * @brief  Determines whether rocket has passed apogee.
-  * @param  base_alt    The base altitude.
-  * @param  curr_pres   The current pressure.
-  * @param  height      The last recorded height.
+  * @param  prev_height The last recorded height.
+  * @param  height      The current height.
   * @return Boolean
   */
-bool testApogee(float base_alt, float curr_pres, float *prev_height, float height)
+bool testApogee(float *prev_height, float height)
 {
     bool apogee = ((height - *prev_height) <= 0);
     *prev_height = height;
@@ -413,23 +413,21 @@ bool testApogee(float base_alt, float curr_pres, float *prev_height, float heigh
 
 /**
   * @brief  Verifies that rocket's height <= MAIN_DEPLOY_HEIGHT ft.
-  * @param  base_alt    The base altitude.
-  * @param  curr_pres   The current pressure.
+  * @param  height      The current height.
   * @return Boolean
   */
-bool detectMainAlt(float base_alt, float curr_pres, float height)
+bool detectMainAlt(float height)
 {
     return (height <= MAIN_DEPLOY_HEIGHT);
 }
 
 /** 
   * @brief  Detects landing by checking that altitude delta ≈ 0.
-  * @param  base_alt    The base altitude.
-  * @param  curr_pres   The current pressure.
-  * @param  height      The last recorded height.
+  * @param  prev_height The last recorded height.
+  * @param  height      The current height.
   * @return Boolean
   */
-bool detectLanded(float base_alt, float curr_pres, float *prev_height, float height)
+bool detectLanded(float *prev_height, float height)
 {
     bool landed = ((height - *prev_height) <= EPSILON);
     *prev_height = height;
@@ -440,11 +438,11 @@ bool detectLanded(float base_alt, float curr_pres, float *prev_height, float hei
 /* MAIN ===================================================================================================== */
 
 /**
-  * @brief Apogee Detection board routine - hardware-independent implementation.
+  * @brief Apogee Detection board routine.
   */
 int main()
 {
-    { //scope retval
+    { /* scope retval */
         status_t retval;
         do {
             retval = barometerInit();
@@ -454,17 +452,21 @@ int main()
             retval = accelerometerInit();
         } while (retval != STATUS_OK);
     }
-  
+
     SDBlockDevice sd(SPI_MOSI, SPI_MISO, SPI_SCK, SPI_CS);
 
     FATFileSystem fs(sdMountPt, &sd);
+
+    /* Open or create logging file in append mode */
+    logFP = fopen(logPath, "a");
 
     baseVarStruct baseVars;
 
     baseVarsFP = fopen(sdBaseVarsPath, "r");
 
     if (isNullOrEmpty(baseVarsFP)) {
-        /* first initialization, not a blackout */
+        /* First initialization, not a blackout */
+        /* Get base altitude */
         float base_alt_arr[ARR_SIZE];
         float curr_pres, curr_temp, curr_alt;
         for (int i = 0; i < ARR_SIZE; i++) {
@@ -481,7 +483,6 @@ int main()
         baseVars.base_alt = temp.base_alt;
     }
 
-    logFP = fopen(logPath, "a");
     baseVarsFP = fopen(sdBaseVarsPath, "w");
     currStateFP = fopen(sdCurrStatePath, "w");
 
@@ -505,7 +506,8 @@ int main()
 
     /* Enter state machine into APDET_STATE_TESTING state */
     state_t curr_state;
-    changeStateAndResetChecks(APDET_STATE_TESTING, &curr_state,
+    state_t enter_state = APDET_STATE_TESTING
+    changeStateAndResetChecks(enter_state, &curr_state,
       state_change_check_arr, ARR_SIZE, &state_change_check_idx);
 
     /* turn on LED to indicate initialization has succeeded */
@@ -549,7 +551,7 @@ int main()
                     baseVars.base_pres = curr_pres;
                     baseVars.base_temp = curr_temp;
                     writeBaseVars(baseVars);
-                    /* Change state */
+                    /* Change state and log */
                     changeStateAndResetChecks(APDET_STATE_STANDBY, &curr_state,
                       state_change_check_arr, ARR_SIZE, &state_change_check_idx);
                 } else {
@@ -567,6 +569,7 @@ int main()
                     state_change_check_arr[state_change_check_idx] = 1;
 
                     if (sumArrElems(state_change_check_arr, ARR_SIZE) >= NUM_CHECKS) {
+                        /* Change state, log, and reset state change checking array */
                         changeStateAndResetChecks(APDET_STATE_POWERED_ASCENT, &curr_state,
                           state_change_check_arr, ARR_SIZE, &state_change_check_idx);
                     }
@@ -614,7 +617,7 @@ int main()
 
             case APDET_STATE_COASTING:
             {
-                if (nearingApogee(accel, baseVars.base_alt, curr_pres, curr_height)) {
+                if (nearingApogee(accel, curr_height)) {
                     state_change_check_arr[state_change_check_idx] = 1;
                     if (sumArrElems(state_change_check_arr, ARR_SIZE) >= NUM_CHECKS) {
                         changeStateAndResetChecks(APDET_STATE_APOGEE_TESTING, &curr_state,
@@ -629,7 +632,7 @@ int main()
 
             case APDET_STATE_APOGEE_TESTING:
             {
-                if (testApogee(baseVars.base_alt, curr_pres, &test_ap_height, curr_height)) {
+                if (testApogee(&test_ap_height, curr_height)) {
                     state_change_check_arr[state_change_check_idx] = 1;
                     if (sumArrElems(state_change_check_arr, ARR_SIZE) >= NUM_CHECKS) {
                         changeStateAndResetChecks(APDET_STATE_DEPLOY_DROGUE_AND_PAYLOAD, &curr_state,
@@ -653,7 +656,7 @@ int main()
 
             case APDET_STATE_INITIAL_DESCENT:
             {
-                if (detectMainAlt(baseVars.base_alt, curr_pres, curr_height)) {
+                if (detectMainAlt(curr_height)) {
                     state_change_check_arr[state_change_check_idx] = 1;
                     if (sumArrElems(state_change_check_arr, ARR_SIZE) >= NUM_CHECKS) {
                         changeStateAndResetChecks(APDET_STATE_DEPLOY_MAIN, &curr_state,
@@ -676,7 +679,7 @@ int main()
 
             case APDET_STATE_FINAL_DESCENT:
             {
-                if (detectLanded(baseVars.base_alt, curr_pres, &land_det_height, curr_height)){
+                if (detectLanded(&land_det_height, curr_height)){
                     state_change_check_arr[state_change_check_idx] = 1;
                     if (sumArrElems(state_change_check_arr, ARR_SIZE) >= NUM_CHECKS) {
                         changeStateAndResetChecks(APDET_STATE_LANDED, &curr_state,
