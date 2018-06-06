@@ -1,0 +1,19 @@
+version: 2
+jobs:
+  build:
+    docker:
+      - image: ubcrocket/majortim-build
+    steps:
+      - checkout
+      - run:
+          name: Build project
+          command: |
+            cd apdet-hanna
+            cd ../sharetest
+            ./build.sh
+            cd ../
+            ls -l
+            pwd
+
+      - store_artifacts:
+          path: builds/

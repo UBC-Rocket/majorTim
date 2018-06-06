@@ -1,0 +1,6 @@
+#ifndef UBCR_SHARETEST_H
+#define UBCR_SHARETEST_H
+
+#define SHARETEST_INTERVAL 1.0
+
+#endif
