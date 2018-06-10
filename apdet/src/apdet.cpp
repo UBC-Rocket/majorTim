@@ -13,8 +13,7 @@ Hardware-independent functions.
 /*
 TODO LIST
 - Incorporate Kalman data filtering?
-- Make sure a program clears the SD card / base variable file before every flight BUT NOT AFTER A BLACKOUT
-- Documentation updates
+- Make sure the SD card / base variable file is reformatted/cleared before every flight
 - Timer backup (ask Joren for state times)
 - Tweak ACCEL_NEAR_APOGEE
 */
@@ -506,7 +505,7 @@ int main()
 
     /* Enter state machine into APDET_STATE_TESTING state */
     state_t curr_state;
-    state_t enter_state = APDET_STATE_TESTING
+    state_t enter_state = APDET_STATE_TESTING;
     changeStateAndResetChecks(enter_state, &curr_state,
       state_change_check_arr, ARR_SIZE, &state_change_check_idx);
 
