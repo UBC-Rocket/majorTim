@@ -150,18 +150,18 @@ typedef enum {
 #endif
 
     /* CUSTOM PINS */
-    LED             = PB_12,
+    LED             = PB_14,
     IG1             = PB_13,
-    IG1_TEST_OUT    = PD_11,
-    IG1_TEST_IN     = PD_10,
-    IG2             = PB_14,
-    IG2_TEST_OUT    = PD_8,
-    IG2_TEST_IN     = PB_15,
+    IG1_TEST_OUT    = PB_15,
+    IG1_TEST_IN     = PB_1,
+    IG2             = PD_8,
+    IG2_TEST_OUT    = PB_12,
+    IG2_TEST_IN     = PD_11,
 
-    I2C_SCL     = PB_6,
-    I2C_SDA     = PB_7,
+    I2C_SCL     = PB_8,
+    I2C_SDA     = PB_9,
 
-    SPI_CS      = PA_4,
+    SPI_CS      = PB_6,
     SPI_SCK     = PA_5,
     SPI_MISO    = PA_6,
     SPI_MOSI    = PA_7,
