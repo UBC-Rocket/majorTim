@@ -506,7 +506,7 @@ int main()
 
     /* Enter state machine into APDET_STATE_TESTING state */
     state_t curr_state;
-    state_t enter_state = APDET_STATE_TESTING
+    state_t enter_state = APDET_STATE_TESTING;
     changeStateAndResetChecks(enter_state, &curr_state,
       state_change_check_arr, ARR_SIZE, &state_change_check_idx);
 
