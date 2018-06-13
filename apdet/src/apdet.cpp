@@ -468,6 +468,7 @@ int main()
 
     if (isNullOrEmpty(baseVarsFP)) {
         /* First initialization, not a blackout */
+        baseVarsFP = fopen(sdBaseVarsPath, "wb+");
         /* Get base altitude */
         float base_alt_arr[ARR_SIZE];
         float curr_pres, curr_temp, curr_alt;
@@ -489,6 +490,10 @@ int main()
     }
 
     currStateFP = fopen(sdCurrStatePath, "rb+");
+    
+    if (isNullOrEmpty(currStateFP)) {
+        currStateFP = fopen(sdCurrStatePath, "wb+");
+    }
 
     /* To store previous accel in detectBurnout function */
     int16_t bo_det_accel  = 0;
