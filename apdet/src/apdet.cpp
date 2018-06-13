@@ -460,11 +460,11 @@ int main()
     FATFileSystem fs(sdMountPt, &sd);
 
     /* Open or create logging file in append mode */
-    logFP = fopen(logPath, "a");
+    logFP = fopen(logPath, "ab");
 
     baseVarStruct baseVars;
 
-    baseVarsFP = fopen(sdBaseVarsPath, "r+");
+    baseVarsFP = fopen(sdBaseVarsPath, "rb+");
 
     if (isNullOrEmpty(baseVarsFP)) {
         /* First initialization, not a blackout */
@@ -488,7 +488,7 @@ int main()
         baseVars.base_alt = temp.base_alt;
     }
 
-    currStateFP = fopen(sdCurrStatePath, "r+");
+    currStateFP = fopen(sdCurrStatePath, "rb+");
 
     /* To store previous accel in detectBurnout function */
     int16_t bo_det_accel  = 0;
