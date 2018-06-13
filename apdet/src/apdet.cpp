@@ -16,6 +16,9 @@ TODO LIST
 - Make sure the SD card / base variable file is reformatted/cleared before every flight
 - Timer backup (ask Joren for state times)
 - Tweak ACCEL_NEAR_APOGEE
+- Open with binary or not? Test this (replace w with wb)
+- Set up serial
+- Close file before opening in another mode?
 */
 
 /* STATIC VARS ============================================================================================== */
@@ -461,7 +464,7 @@ int main()
 
     baseVarStruct baseVars;
 
-    baseVarsFP = fopen(sdBaseVarsPath, "r");
+    baseVarsFP = fopen(sdBaseVarsPath, "r+");
 
     if (isNullOrEmpty(baseVarsFP)) {
         /* First initialization, not a blackout */
@@ -475,6 +478,9 @@ int main()
         }
         float median = getMedian(base_alt_arr, ARR_SIZE);
         baseVars.base_alt = median;
+        baseVars.base_pres = curr_pres;
+        baseVars.base_temp = curr_temp;
+        writeBaseVars(baseVars);
     } else {
         /* Recover altitude only */
         baseVarStruct temp;
@@ -482,8 +488,7 @@ int main()
         baseVars.base_alt = temp.base_alt;
     }
 
-    baseVarsFP = fopen(sdBaseVarsPath, "w");
-    currStateFP = fopen(sdCurrStatePath, "w");
+    currStateFP = fopen(sdCurrStatePath, "r+");
 
     /* To store previous accel in detectBurnout function */
     int16_t bo_det_accel  = 0;
@@ -519,6 +524,10 @@ int main()
         
         status_t retval;
 
+        // logFP = fopen(logPath, "a");
+        // baseVarsFP = fopen(sdBaseVarsPath, "r+");
+        // currStateFP = fopen(sdCurrStatePath, "r+");
+
         /* Get acceleration */
         retval = accelerometerGetAndLog(&accel_x, &accel_y, &accel_z);
         if (retval != STATUS_OK) {
@@ -539,7 +548,6 @@ int main()
 
         /* Get current relative altitude (height above ground) */
         calcHeight(curr_pres, baseVars.base_alt, &curr_height);
-
 
         switch(curr_state) {
 
