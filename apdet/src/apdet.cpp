@@ -455,6 +455,8 @@ int main()
     //     } while (retval != STATUS_OK);
     // }
 
+    printf("Reached line %s\n", __LINE__);
+
     SDBlockDevice sd(SPI_MOSI, SPI_MISO, SPI_SCK, SPI_CS);
 
     FATFileSystem fs(sdMountPt, &sd);
@@ -464,18 +466,28 @@ int main()
     fprintf(logFP, "%s\n", "Wrote to log.");
     fclose(logFP);
 
+    printf("Reached line %s\n", __LINE__);
+
     logFP2 = fopen(logPath2, "a");
     fprintf(logFP, "%s\n", "Wrote to log.");
 
+    printf("Reached line %s\n", __LINE__);
+
     logFP3 = fopen(logPath3, "w");
+
+    printf("Reached line %s\n", __LINE__);
 
     logFP4 = fopen(logPath4, "a");
     fclose(logFP4);
 
+    printf("Reached line %s\n", __LINE__);
+
     logFP5 = fopen(logPath5, "w");
     fclose(logFP5);
 
-    while(1) {}
+    printf("Reached line %s\n", __LINE__);
+
+    return -1;
 
     baseVarStruct baseVars;
 
