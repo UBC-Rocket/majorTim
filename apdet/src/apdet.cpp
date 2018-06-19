@@ -444,16 +444,16 @@ bool detectLanded(float *prev_height, float height)
   */
 int main()
 {
-    { /* scope retval */
-        status_t retval;
-        do {
-            retval = barometerInit();
-        } while (retval != STATUS_OK);
+    // { /* scope retval */
+    //     status_t retval;
+    //     do {
+    //         retval = barometerInit();
+    //     } while (retval != STATUS_OK);
 
-        do {
-            retval = accelerometerInit();
-        } while (retval != STATUS_OK);
-    }
+    //     do {
+    //         retval = accelerometerInit();
+    //     } while (retval != STATUS_OK);
+    // }
 
     SDBlockDevice sd(SPI_MOSI, SPI_MISO, SPI_SCK, SPI_CS);
 
@@ -461,6 +461,21 @@ int main()
 
     /* Open or create logging file in append mode */
     logFP = fopen(logPath, "ab");
+    fprintf(logFP, "%s\n", "Wrote to log.");
+    fclose(logFP);
+
+    logFP2 = fopen(logPath2, "a");
+    fprintf(logFP, "%s\n", "Wrote to log.");
+
+    logFP3 = fopen(logPath3, "w");
+
+    logFP4 = fopen(logPath4, "a");
+    fclose(logFP4);
+
+    logFP5 = fopen(logPath5, "w");
+    fclose(logFP5);
+
+    while(1) {}
 
     baseVarStruct baseVars;
 

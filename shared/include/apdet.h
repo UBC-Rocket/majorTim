@@ -29,11 +29,19 @@
 
 /* File paths for logging */
 static const char* logPath = "/sd/log.bin";
+static const char* logPath2 = "/sd/log2.bin";
+static const char* logPath3 = "/sd/log3.bin";
+static const char* logPath4 = "/sd/log4.bin";
+static const char* logPath5 = "/sd/log5.bin";
 static const char* sdBaseVarsPath = "/sd/baseVars.bin";
 static const char* sdCurrStatePath = "/sd/currState.bin";
 static const char* sdMountPt = "sd";
 
 static FILE* logFP;
+static FILE* logFP2;
+static FILE* logFP3;
+static FILE* logFP4;
+static FILE* logFP5;
 static FILE* baseVarsFP;
 static FILE* currStateFP;
 
