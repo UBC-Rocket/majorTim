@@ -341,6 +341,20 @@ float getMedian(float arr[], int size) {
     }
 }
 
+status_t openAllFPs() {
+    logFP = fopen(logPath, "a");
+    baseVarsFP = fopen(sdBaseVarsPath, "r+");
+    currStateFP = fopen(sdCurrStatePath, "r+");
+    return STATUS_OK;
+}
+
+status_t closeAllFPs() {
+    fclose(logFP);
+    fclose(baseVarsFP);
+    fclose(currStateFP);
+    return STATUS_OK;
+}
+
 /* ROCKET FLIGHT STATE TRANSITION DETECTION FUNCTIONS ======================================================= */
 
 /**
@@ -437,30 +451,21 @@ bool detectLanded(float *prev_height, float height)
 
 /* MAIN ===================================================================================================== */
 
-// // For debugging:
-// #include <errno.h>
-// #include <string.h>
-// #include <stdio.h>
-
-// extern int errno;
-
 /**
   * @brief Apogee Detection board routine.
   */
 int main()
 {
-    // { /* scope retval */
-    //     status_t retval;
-    //     do {
-    //         retval = barometerInit();
-    //     } while (retval != STATUS_OK);
+    { /* scope retval */
+        status_t retval;
+        do {
+            retval = barometerInit();
+        } while (retval != STATUS_OK);
 
-    //     do {
-    //         retval = accelerometerInit();
-    //     } while (retval != STATUS_OK);
-    // }
-
-    printf("Reached line %d\n", __LINE__);
+        do {
+            retval = accelerometerInit();
+        } while (retval != STATUS_OK);
+    }
 
     SDBlockDevice sd(SPI_MOSI, SPI_MISO, SPI_SCK, SPI_CS);
 
@@ -468,20 +473,6 @@ int main()
 
     /* Open or create logging file in append mode */
     logFP = fopen(logPath, "a");
-    fprintf(logFP, "Wrote to log.");
-    printf("Reached line %d\n", __LINE__);
-
-    
-    // // For debugging:
-    // int errnum = errno;
-    // printf("Error %d opening file: %s\n", errno, strerror( errnum ));
-    // printf("logFP is %p\n", logFP);
-   
-    fclose(logFP);
-
-    printf("Reached line %d\n", __LINE__);
-
-    return -1;
 
     baseVarStruct baseVars;
 
@@ -545,14 +536,14 @@ int main()
 
     while (1) {
 
+        /* Checkpoint */
+        closeAllFPs();
+        openAllFPs();
+
         int16_t accel, accel_x, accel_y, accel_z;
         float curr_pres, curr_temp, curr_height;
         
         status_t retval;
-
-        // logFP = fopen(logPath, "a");
-        // baseVarsFP = fopen(sdBaseVarsPath, "r+");
-        // currStateFP = fopen(sdCurrStatePath, "r+");
 
         /* Get acceleration */
         retval = accelerometerGetAndLog(&accel_x, &accel_y, &accel_z);
