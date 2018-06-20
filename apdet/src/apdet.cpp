@@ -467,27 +467,16 @@ int main()
 
     /* Open or create logging file in append mode */
     logFP = fopen(logPath, "a");
-    fprintf(logFP, "%s", "Wrote to log.");
+    fprintf(logFP, "Wrote to log.");
     printf("Reached line %d\n", __LINE__);
 
     
     // For debugging:
-    int errnum = errno;
-    printf("Error %d opening file: %s\n", errno, strerror( errnum ));
-    printf("logFP is %p\n", logFP);
+    // int errnum = errno;
+    // printf("Error %d opening file: %s\n", errno, strerror( errnum ));
+    // printf("logFP is %p\n", logFP);
    
-
-    printf("logFP is %p\n", logFP);
-    fprintf(logFP, "%s", "Wrote to log.");
     fclose(logFP);
-    logFP = fopen(logPath, "r");
-    printf("logFP is %p\n", logFP);
-    fseek(logFP, 0, SEEK_SET);
-    char buffer[100];
-    printf("Reached line %d\n", __LINE__);
-    fread(buffer, 20, 1, logFP);
-    printf("Reached line %d\n", __LINE__);
-    printf("%s\n", buffer);
 
     printf("Reached line %d\n", __LINE__);
 
