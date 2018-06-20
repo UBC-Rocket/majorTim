@@ -16,7 +16,6 @@ TODO LIST
 - Make sure the SD card / base variable file is reformatted/cleared before every flight
 - Timer backup (ask Joren for state times)
 - Tweak ACCEL_NEAR_APOGEE
-- Set up serial
 - Close file before opening in another mode?
 */
 
@@ -449,18 +448,18 @@ extern int errno;
   */
 int main()
 {
-    { /* scope retval */
-        status_t retval;
-        do {
-            retval = barometerInit();
-        } while (retval != STATUS_OK);
+    // { /* scope retval */
+    //     status_t retval;
+    //     do {
+    //         retval = barometerInit();
+    //     } while (retval != STATUS_OK);
 
-        do {
-            retval = accelerometerInit();
-        } while (retval != STATUS_OK);
-    }
+    //     do {
+    //         retval = accelerometerInit();
+    //     } while (retval != STATUS_OK);
+    // }
 
-    // printf("Reached line %d\n", __LINE__);
+    printf("Reached line %d\n", __LINE__);
 
     SDBlockDevice sd(SPI_MOSI, SPI_MISO, SPI_SCK, SPI_CS);
 
@@ -468,49 +467,31 @@ int main()
 
     /* Open or create logging file in append mode */
     logFP = fopen(logPath, "a");
+    fprintf(logFP, "%s", "Wrote to log.");
+    printf("Reached line %d\n", __LINE__);
 
-    /*
+    
     // For debugging:
     int errnum = errno;
     printf("Error %d opening file: %s\n", errno, strerror( errnum ));
     printf("logFP is %p\n", logFP);
-    */
+   
 
-    // printf("logFP is %p\n", logFP);
-    // fprintf(logFP, "%s", "Wrote to log.");
-    // fclose(logFP);
-    // logFP = fopen(logPath, "r");
-    // printf("logFP is %p\n", logFP);
-    // fseek(logFP, 0, SEEK_SET);
-    // char buffer[100];
-    // printf("Reached line %d\n", __LINE__);
-    // fread(buffer, 14, 1, logFP);
-    // printf("Reached line %d\n", __LINE__);
-    // printf("%s\n", buffer);
+    printf("logFP is %p\n", logFP);
+    fprintf(logFP, "%s", "Wrote to log.");
+    fclose(logFP);
+    logFP = fopen(logPath, "r");
+    printf("logFP is %p\n", logFP);
+    fseek(logFP, 0, SEEK_SET);
+    char buffer[100];
+    printf("Reached line %d\n", __LINE__);
+    fread(buffer, 20, 1, logFP);
+    printf("Reached line %d\n", __LINE__);
+    printf("%s\n", buffer);
 
-    // printf("Reached line %d\n", __LINE__);
+    printf("Reached line %d\n", __LINE__);
 
-    // logFP2 = fopen(logPath2, "a");
-    // fprintf(logFP2, "%s\n", "Wrote to log.");
-
-    // printf("Reached line %d\n", __LINE__);
-
-    // logFP3 = fopen(logPath3, "w");
-    // fprintf(logFP3, "%s", "Wrote to log.");
-
-    // printf("Reached line %d\n", __LINE__);
-
-    // logFP4 = fopen(logPath4, "a");
-    // fprintf(logFP4, "%s", "Wrote to log.");
-    // fclose(logFP4);
-
-    // printf("Reached line %d\n", __LINE__);
-
-    // logFP5 = fopen(logPath5, "w");
-    // fprintf(logFP5, "%s", "Wrote to log.");
-    // fclose(logFP5);
-
-    // printf("Reached line %d\n", __LINE__);
+    return -1;
 
     baseVarStruct baseVars;
 
