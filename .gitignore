@@ -50,3 +50,33 @@ modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
+
+#custom
+Makefile_with_path
+
+img/*
+o/*
+*.csv
+test-can/*.txt
+test-io/sd_file.txt
+*.sublime-project
+*.sublime-workspace
+
+*.DS_Store
+.idea
+CMakeLists.txt
+cmake-build-debug
+
+#Build img folders
+builds/*
+
+# Local build artefacts
+shared/mbed/BUILD-*/*
+
+*/.mbed
+*/BUILD-*
+*/makefile-mbed
+*/mbed-os
+*/mbed_config.h
+*/mbed_settings.py
+*.pyc
