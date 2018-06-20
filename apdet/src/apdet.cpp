@@ -16,7 +16,6 @@ TODO LIST
 - Make sure the SD card / base variable file is reformatted/cleared before every flight
 - Timer backup (ask Joren for state times)
 - Tweak ACCEL_NEAR_APOGEE
-- Open with binary or not? Test this (replace w with wb)
 - Set up serial
 - Close file before opening in another mode?
 */
@@ -439,63 +438,87 @@ bool detectLanded(float *prev_height, float height)
 
 /* MAIN ===================================================================================================== */
 
+#include <errno.h>
+#include <string.h>
+#include <stdio.h>
+
+extern int errno;
+
 /**
   * @brief Apogee Detection board routine.
   */
 int main()
 {
-    // { /* scope retval */
-    //     status_t retval;
-    //     do {
-    //         retval = barometerInit();
-    //     } while (retval != STATUS_OK);
+    { /* scope retval */
+        status_t retval;
+        do {
+            retval = barometerInit();
+        } while (retval != STATUS_OK);
 
-    //     do {
-    //         retval = accelerometerInit();
-    //     } while (retval != STATUS_OK);
-    // }
+        do {
+            retval = accelerometerInit();
+        } while (retval != STATUS_OK);
+    }
 
-    printf("Reached line %s\n", __LINE__);
+    // printf("Reached line %d\n", __LINE__);
 
     SDBlockDevice sd(SPI_MOSI, SPI_MISO, SPI_SCK, SPI_CS);
 
     FATFileSystem fs(sdMountPt, &sd);
 
     /* Open or create logging file in append mode */
-    logFP = fopen(logPath, "ab");
-    fprintf(logFP, "%s\n", "Wrote to log.");
-    fclose(logFP);
+    logFP = fopen(logPath, "a");
 
-    printf("Reached line %s\n", __LINE__);
+    /*
+    // For debugging:
+    int errnum = errno;
+    printf("Error %d opening file: %s\n", errno, strerror( errnum ));
+    printf("logFP is %p\n", logFP);
+    */
 
-    logFP2 = fopen(logPath2, "a");
-    fprintf(logFP, "%s\n", "Wrote to log.");
+    // printf("logFP is %p\n", logFP);
+    // fprintf(logFP, "%s", "Wrote to log.");
+    // fclose(logFP);
+    // logFP = fopen(logPath, "r");
+    // printf("logFP is %p\n", logFP);
+    // fseek(logFP, 0, SEEK_SET);
+    // char buffer[100];
+    // printf("Reached line %d\n", __LINE__);
+    // fread(buffer, 14, 1, logFP);
+    // printf("Reached line %d\n", __LINE__);
+    // printf("%s\n", buffer);
 
-    printf("Reached line %s\n", __LINE__);
+    // printf("Reached line %d\n", __LINE__);
 
-    logFP3 = fopen(logPath3, "w");
+    // logFP2 = fopen(logPath2, "a");
+    // fprintf(logFP2, "%s\n", "Wrote to log.");
 
-    printf("Reached line %s\n", __LINE__);
+    // printf("Reached line %d\n", __LINE__);
 
-    logFP4 = fopen(logPath4, "a");
-    fclose(logFP4);
+    // logFP3 = fopen(logPath3, "w");
+    // fprintf(logFP3, "%s", "Wrote to log.");
 
-    printf("Reached line %s\n", __LINE__);
+    // printf("Reached line %d\n", __LINE__);
 
-    logFP5 = fopen(logPath5, "w");
-    fclose(logFP5);
+    // logFP4 = fopen(logPath4, "a");
+    // fprintf(logFP4, "%s", "Wrote to log.");
+    // fclose(logFP4);
 
-    printf("Reached line %s\n", __LINE__);
+    // printf("Reached line %d\n", __LINE__);
 
-    return -1;
+    // logFP5 = fopen(logPath5, "w");
+    // fprintf(logFP5, "%s", "Wrote to log.");
+    // fclose(logFP5);
+
+    // printf("Reached line %d\n", __LINE__);
 
     baseVarStruct baseVars;
 
-    baseVarsFP = fopen(sdBaseVarsPath, "rb+");
+    baseVarsFP = fopen(sdBaseVarsPath, "r+");
 
     if (isNullOrEmpty(baseVarsFP)) {
         /* First initialization, not a blackout */
-        baseVarsFP = fopen(sdBaseVarsPath, "wb+");
+        baseVarsFP = fopen(sdBaseVarsPath, "w+");
         /* Get base altitude */
         float base_alt_arr[ARR_SIZE];
         float curr_pres, curr_temp, curr_alt;
@@ -516,10 +539,10 @@ int main()
         baseVars.base_alt = temp.base_alt;
     }
 
-    currStateFP = fopen(sdCurrStatePath, "rb+");
+    currStateFP = fopen(sdCurrStatePath, "r+");
     
     if (isNullOrEmpty(currStateFP)) {
-        currStateFP = fopen(sdCurrStatePath, "wb+");
+        currStateFP = fopen(sdCurrStatePath, "w+");
     }
 
     /* To store previous accel in detectBurnout function */
