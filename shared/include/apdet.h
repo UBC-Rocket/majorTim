@@ -28,9 +28,9 @@
 #define g                            9.80665    /* (m/s^2)      gravitational acceleration */
 
 /* File paths for logging */
-static const char* logPath = "/sd/log.bin";
-static const char* sdBaseVarsPath = "/sd/baseVars.bin";
-static const char* sdCurrStatePath = "/sd/currState.bin";
+static const char* logPath = "/sd/log.txt";
+static const char* sdBaseVarsPath = "/sd/baseVars.txt";
+static const char* sdCurrStatePath = "/sd/currState.txt";
 static const char* sdMountPt = "sd";
 
 static FILE* logFP;

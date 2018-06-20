@@ -8,7 +8,7 @@ jobs:
       - run:
           name: Build project
           command: |
-            cd apdet-hanna
+            cd apdet
             cd ../sharetest
             ./build.sh
             cd ../

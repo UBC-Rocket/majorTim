@@ -9,7 +9,7 @@ if [ $# -eq 0 ]; then #make sure we get some params into the script
 fi
 
 FilePath=(
-	"apdet-hanna"		#FilePath[0]
+	"apdet"				#FilePath[0]
 	"sharetest"			#FilePath[1]
 	"telem"				#FilePath[2]
 )

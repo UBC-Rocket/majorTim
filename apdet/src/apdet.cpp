@@ -13,10 +13,10 @@ Hardware-independent functions.
 /*
 TODO LIST
 - Incorporate Kalman data filtering?
-- Make sure a program clears the SD card / base variable file before every flight BUT NOT AFTER A BLACKOUT
-- Documentation updates
+- Make sure the SD card / base variable file is reformatted/cleared before every flight
 - Timer backup (ask Joren for state times)
 - Tweak ACCEL_NEAR_APOGEE
+- Close file before opening in another mode?
 */
 
 /* STATIC VARS ============================================================================================== */
@@ -341,6 +341,20 @@ float getMedian(float arr[], int size) {
     }
 }
 
+status_t openAllFPs() {
+    logFP = fopen(logPath, "a");
+    baseVarsFP = fopen(sdBaseVarsPath, "r+");
+    currStateFP = fopen(sdCurrStatePath, "r+");
+    return STATUS_OK;
+}
+
+status_t closeAllFPs() {
+    fclose(logFP);
+    fclose(baseVarsFP);
+    fclose(currStateFP);
+    return STATUS_OK;
+}
+
 /* ROCKET FLIGHT STATE TRANSITION DETECTION FUNCTIONS ======================================================= */
 
 /**
@@ -462,10 +476,11 @@ int main()
 
     baseVarStruct baseVars;
 
-    baseVarsFP = fopen(sdBaseVarsPath, "r");
+    baseVarsFP = fopen(sdBaseVarsPath, "r+");
 
     if (isNullOrEmpty(baseVarsFP)) {
         /* First initialization, not a blackout */
+        baseVarsFP = fopen(sdBaseVarsPath, "w+");
         /* Get base altitude */
         float base_alt_arr[ARR_SIZE];
         float curr_pres, curr_temp, curr_alt;
@@ -476,6 +491,9 @@ int main()
         }
         float median = getMedian(base_alt_arr, ARR_SIZE);
         baseVars.base_alt = median;
+        baseVars.base_pres = curr_pres;
+        baseVars.base_temp = curr_temp;
+        writeBaseVars(baseVars);
     } else {
         /* Recover altitude only */
         baseVarStruct temp;
@@ -483,8 +501,11 @@ int main()
         baseVars.base_alt = temp.base_alt;
     }
 
-    baseVarsFP = fopen(sdBaseVarsPath, "w");
-    currStateFP = fopen(sdCurrStatePath, "w");
+    currStateFP = fopen(sdCurrStatePath, "r+");
+    
+    if (isNullOrEmpty(currStateFP)) {
+        currStateFP = fopen(sdCurrStatePath, "w+");
+    }
 
     /* To store previous accel in detectBurnout function */
     int16_t bo_det_accel  = 0;
@@ -515,6 +536,10 @@ int main()
 
     while (1) {
 
+        /* Checkpoint */
+        closeAllFPs();
+        openAllFPs();
+
         int16_t accel, accel_x, accel_y, accel_z;
         float curr_pres, curr_temp, curr_height;
         
@@ -540,7 +565,6 @@ int main()
 
         /* Get current relative altitude (height above ground) */
         calcHeight(curr_pres, baseVars.base_alt, &curr_height);
-
 
         switch(curr_state) {
 

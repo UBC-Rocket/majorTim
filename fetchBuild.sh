@@ -6,7 +6,7 @@ if [ -z "$1" ]; then
 else
 	mkdir -p builds/build-$1
 	cd builds/build-$1
-	wget https://$1-118362338-gh.circle-artifacts.com/0/root/project/builds/apdet-hanna.bin
+	wget https://$1-118362338-gh.circle-artifacts.com/0/root/project/builds/apdet.bin
 	wget https://$1-118362338-gh.circle-artifacts.com/0/root/project/builds/sharetest.bin
 
 	if [ -n "$2" ]; then
