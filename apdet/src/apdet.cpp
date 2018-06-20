@@ -437,11 +437,12 @@ bool detectLanded(float *prev_height, float height)
 
 /* MAIN ===================================================================================================== */
 
-#include <errno.h>
-#include <string.h>
-#include <stdio.h>
+// // For debugging:
+// #include <errno.h>
+// #include <string.h>
+// #include <stdio.h>
 
-extern int errno;
+// extern int errno;
 
 /**
   * @brief Apogee Detection board routine.
@@ -471,7 +472,7 @@ int main()
     printf("Reached line %d\n", __LINE__);
 
     
-    // For debugging:
+    // // For debugging:
     // int errnum = errno;
     // printf("Error %d opening file: %s\n", errno, strerror( errnum ));
     // printf("logFP is %p\n", logFP);
